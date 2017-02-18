@@ -9,7 +9,6 @@ from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from scipy.ndimage.measurements import label
-from moviepy.editor import VideoFileClip
 
 from settings import (TEST_IMAGES_DIR,
                       INPUT_VIDEOFILE,
@@ -33,6 +32,7 @@ matplotlib.interactive(True)
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from moviepy.editor import VideoFileClip
 
 # TODO(Manav): Classes:
 # Heatmap
