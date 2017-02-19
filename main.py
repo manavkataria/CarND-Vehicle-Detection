@@ -2,7 +2,6 @@
 import glob
 import matplotlib
 import time
-import pickle
 import numpy as np
 
 from sklearn.svm import LinearSVC
@@ -12,20 +11,30 @@ from scipy.ndimage.measurements import label
 
 from settings import (TEST_IMAGES_DIR,
                       INPUT_VIDEOFILE,
-                      OUTPUT_DIR
-                      )
+                      OUTPUT_DIR,
+                      TRAINING_DIR,
+                      VEHICLES_DIR,
+                      NON_VEHICLES_DIR,
+                      SAVE_DIR,
+                      COLORSPACE,
+                      ORIENT,
+                      PIX_PER_CELL,
+                      CELL_PER_BLOCK,
+                      HOG_CHANNEL)
 from utils import (draw_boxes,
                    color_hist,
                    bin_spatial,
                    data_look,
                    get_hog_features,
                    extract_features,
+                   extract_features_hog,
                    slide_window,
                    single_img_features,
                    search_windows,
                    add_heat,
                    apply_threshold,
-                   draw_labeled_bboxes)
+                   draw_labeled_bboxes,
+                   joblib_save)
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -72,26 +81,18 @@ def test_color_hist(filename):
         print('Your function is returning None for at least one variable...')
 
 
-def test_svc_color_hist():
-    # Read in car and non-car images
-    images = glob.glob('*.jpeg')
-    cars = []
-    notcars = []
-    for image in images:
-        if 'image' in image or 'extra' in image:
-            notcars.append(image)
-        else:
-            cars.append(image)
-
+def test_svc_color_hist(cars, notcars):
     # TODO play with these values to see how your classifier
     # performs under different binning scenarios
     spatial = 32
     histbin = 32
 
-    car_features = extract_features(cars, cspace='RGB', spatial_size=(spatial, spatial),
+    car_features = extract_features(cars, cspace='HSV', spatial_size=(spatial, spatial),
                                     hist_bins=histbin, hist_range=(0, 256))
-    notcar_features = extract_features(notcars, cspace='RGB', spatial_size=(spatial, spatial),
+    notcar_features = extract_features(notcars, cspace='HSV', spatial_size=(spatial, spatial),
                                        hist_bins=histbin, hist_range=(0, 256))
+
+    # TODO: Move Normalization Post Test/Train Split
 
     # Create an array stack of feature vectors
     X = np.vstack((car_features, notcar_features)).astype(np.float64)
@@ -111,6 +112,7 @@ def test_svc_color_hist():
     print('Using spatial binning of:',spatial,
           'and', histbin,'histogram bins')
     print('Feature vector length:', len(X_train[0]))
+
     # Use a linear SVC
     svc = LinearSVC()
     # Check the training time for the SVC
@@ -129,37 +131,21 @@ def test_svc_color_hist():
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
 
-def test_svc_color_hog_hist():
-    # Divide up into cars and notcars
-    images = glob.glob('*.jpeg')
-    cars = []
-    notcars = []
-    for image in images:
-        if 'image' in image or 'extra' in image:
-            notcars.append(image)
-        else:
-            cars.append(image)
-
-    # Reduce the sample size because HOG features are slow to compute
-    # The quiz evaluator times out after 13s of CPU time
-    sample_size = 500
-    cars = cars[0:sample_size]
-    notcars = notcars[0:sample_size]
-
+def test_svc_color_hog_hist(cars, notcars):
     # TODO: Tweak these parameters and see how the results change.
-    colorspace = 'RGB'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-    orient = 9
-    pix_per_cell = 8
-    cell_per_block = 2
-    hog_channel = 0  # Can be 0, 1, 2, or "ALL"
+    colorspace = COLORSPACE
+    orient = ORIENT
+    pix_per_cell = PIX_PER_CELL
+    cell_per_block = CELL_PER_BLOCK
+    hog_channel = HOG_CHANNEL
 
     t = time.time()
-    car_features = extract_features(cars, cspace=colorspace, orient=orient,
-                                    pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                    hog_channel=hog_channel)
-    notcar_features = extract_features(notcars, cspace=colorspace, orient=orient,
-                                       pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                       hog_channel=hog_channel)
+    car_features = extract_features_hog(cars, cspace=colorspace, orient=orient,
+                                        pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
+                                        hog_channel=hog_channel)
+    notcar_features = extract_features_hog(notcars, cspace=colorspace, orient=orient,
+                                           pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
+                                           hog_channel=hog_channel)
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to extract HOG features...')
     # Create an array stack of feature vectors
@@ -188,7 +174,8 @@ def test_svc_color_hog_hist():
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
+    accuracy = round(svc.score(X_test, y_test), 4)*100
+    print('Test Accuracy of SVC = ', accuracy)
     # Check the prediction time for a single sample
     t = time.time()
     n_predict = 10
@@ -196,6 +183,7 @@ def test_svc_color_hog_hist():
     print('For these',n_predict, 'labels: ', y_test[0:n_predict])
     t2 = time.time()
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
+    return svc, [scaled_X, y], accuracy
 
 
 def test_sliding_window(image):
@@ -337,7 +325,13 @@ def test_slide_search_window():
 
 
 def main():
-    pass
+    cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')
+    notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')
+    num_samples = None
+    svc, [scaled_X, y], accuracy = test_svc_color_hog_hist(cars[:num_samples], notcars[:num_samples])
+    joblib_save([scaled_X, y], SAVE_DIR + 'dataset_%d.p' % accuracy * 100)
+    joblib_save(svc, SAVE_DIR + 'model_%d.' % accuracy * 100)
+    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':

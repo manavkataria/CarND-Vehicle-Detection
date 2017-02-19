@@ -2,6 +2,8 @@ import matplotlib
 import inspect
 import cv2
 import numpy as np
+import pickle
+import joblib
 
 from skimage.feature import hog
 
@@ -53,11 +55,31 @@ def imcompare(image1, image2, msg1='Image1', msg2='Image2', cmap1=None, cmap2=No
     plt.show(block=True)
 
 
+def pkl_save(py_object, filename):
+    with open(filename, 'wb') as f:
+        pickle.dump(py_object, f)
+
+
+def pkl_load(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
+
+
+def joblib_save(py_object, filename):
+    with open(filename, 'wb') as f:
+        joblib.dump(py_object, f)
+
+
+def joblib_load(filename):
+    with open(filename, 'rb') as f:
+        return joblib.load(f)
+
+# --- Project 4: Advanced Lane Lines Detection ---
+
 def warper(img, src, dst, flip=True):
     # Compute and apply perpective transform
     if flip:
         # Resultant image (h,w) = (w,h) of input `img`
-        # import ipdb; ipdb.set_trace()
         img_size = (img.shape[0], img.shape[1])
         w, h = img_size
         w_padding, h_padding = w*0.0, h*0.0
@@ -124,7 +146,8 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
     # Concatenate the histograms into a single feature vector
     hist_features = np.concatenate((rhist[0], ghist[0], bhist[0]))
     # Return the individual histograms, bin_centers and feature vector
-    return rhist, ghist, bhist, bin_centers, hist_features
+    # return rhist, ghist, bhist, bin_centers, hist_features
+    return hist_features
 
 
 def bin_spatial(img, color_space='RGB', size=(32, 32)):
@@ -181,7 +204,9 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
         return features
 
 
-def extract_features(filenames, cspace='RGB', orient=9, pix_per_cell=8, cell_per_block=2, hog_channel=0):
+def extract_features_hog(filenames, cspace='RGB', spatial_size=(32, 32),
+                         hist_bins=32, hist_range=(0, 256),
+                         orient=9, pix_per_cell=8, cell_per_block=2, hog_channel=0):
     """
     Define a function to extract features from a list of images
     Have this function call bin_spatial() and color_hist()
@@ -207,6 +232,11 @@ def extract_features(filenames, cspace='RGB', orient=9, pix_per_cell=8, cell_per
         else:
             feature_image = np.copy(image)
 
+        # Apply bin_spatial() to get spatial color features
+        spatial_features = bin_spatial(feature_image, size=spatial_size)
+        # Apply color_hist() also with a color space option now
+        hist_features = color_hist(feature_image, nbins=hist_bins, bins_range=hist_range)
+
         # Call get_hog_features() with vis=False, feature_vec=True
         if hog_channel == 'ALL':
             hog_features = []
@@ -219,7 +249,37 @@ def extract_features(filenames, cspace='RGB', orient=9, pix_per_cell=8, cell_per
             hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
                                             pix_per_cell, cell_per_block, vis=False, feature_vec=True)
         # Append the new feature vector to the features list
-        features.append(hog_features)
+        features.append(np.concatenate((spatial_features, hist_features, hog_features)))
+    # Return list of feature vectors
+    return features
+
+
+def extract_features(imgs, cspace='RGB', spatial_size=(32, 32),
+                     hist_bins=32, hist_range=(0, 256)):
+    # Create a list to append feature vectors to
+    features = []
+    # Iterate through the list of images
+    for file in imgs:
+        # Read in each one by one
+        image = mpimg.imread(file)
+        # apply color conversion if other than 'RGB'
+        if cspace != 'RGB':
+            if cspace == 'HSV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+            elif cspace == 'LUV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+            elif cspace == 'HLS':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+            elif cspace == 'YUV':
+                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+        else:
+            feature_image = np.copy(image)
+        # Apply bin_spatial() to get spatial color features
+        spatial_features = bin_spatial(feature_image, size=spatial_size)
+        # Apply color_hist() also with a color space option now
+        hist_features = color_hist(feature_image, nbins=hist_bins, bins_range=hist_range)
+        # Append the new feature vector to the features list
+        features.append(np.concatenate((spatial_features, hist_features)))
     # Return list of feature vectors
     return features
 
