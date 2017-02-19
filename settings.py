@@ -20,7 +20,7 @@ VEHICLES_DIR = 'vehicles/'              # 8792 Samples
 NON_VEHICLES_DIR = 'non-vehicles/'      # 8968 Samples
 
 
-#
+# HOG Parameters
 COLORSPACE = 'HLS'  # Can be RGB*9717, HSV, LUV, HLS*9916, YUV, YCrCb*9899
 ORIENT = 9
 PIX_PER_CELL = 8
@@ -30,5 +30,5 @@ Y_START_STOP = [500, None]
 
 # Pickled Files
 ACCURACY = 9916
-MODEL_FILE = ('model_%d.p' % ACCURACY)
-DATASET_FILE = ('dataset_%d.p' % ACCURACY)
+MODEL_FILE = (SAVE_DIR + 'model_%d.p' % ACCURACY)
+DATASET_FILE = (SAVE_DIR + 'dataset_%d.p' % ACCURACY)

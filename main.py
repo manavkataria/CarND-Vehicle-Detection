@@ -55,7 +55,7 @@ from moviepy.editor import VideoFileClip
 # classifer/model
 
 
-def VehicleDetection(object):
+class VehicleDetection(object):
 
     def __init__(self, model_file=None, dataset_file=None):
         if model_file:
@@ -342,14 +342,9 @@ def main():
     cars, notcars = cars[:num_samples], notcars[:num_samples]
     filenames = glob.glob(TEST_IMAGES_DIR + '*')
 
-    for filename in filenames:
-        image = mpimg.imread(filename)
-        boxed_image = test_sliding_window(image)
-        
-    # import ipdb; ipdb.set_trace()
-
-    # detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
+    detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
     # test_slide_search_window(cars, notcars)
+
 
 if __name__ == '__main__':
     main()
