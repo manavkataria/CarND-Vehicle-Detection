@@ -9,7 +9,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from scipy.ndimage.measurements import label
 
-from settings import (TEST_IMAGES_DIR,
+from settings import (NUM_SAMPLES,
+                      TEST_IMAGES_DIR,
                       INPUT_VIDEOFILE,
                       OUTPUT_DIR,
                       TRAINING_DIR,
@@ -23,23 +24,27 @@ from settings import (TEST_IMAGES_DIR,
                       HOG_CHANNEL,
                       Y_START_STOP,
                       MODEL_FILE,
-                      DATASET_FILE)
+                      DATASET_FILE,
+                      TRAIN_TEST_SPLIT,
+                      SPATIAL_SIZE,
+                      HIST_BINS,
+                      SPATIAL_FEAT,
+                      HIST_FEAT,
+                      HOG_FEAT,
+                      XY_WINDOW,
+                      XY_OVERLAP)
 from utils import (draw_boxes,
                    color_hist,
-                   bin_spatial,
-                   data_look,
-                   get_hog_features,
-                   extract_features,
                    extract_features_hog,
                    slide_window,
-                   single_img_features,
                    search_windows,
                    add_heat,
                    apply_threshold,
                    draw_labeled_bboxes,
                    joblib_save,
                    joblib_load,
-                   imcompare)
+                   imcompare,
+                   display)
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -64,9 +69,9 @@ class VehicleDetection(object):
             self.svc = None
 
         if dataset_file:
-            [self.scaled_X, self.y] = joblib_load(dataset_file)
+            [self.X_scaler, self.scaled_X, self.y] = joblib_load(dataset_file)
         else:
-            [self.scaled_X, self.y] = [None, None]
+            [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
 
 
 def test_heatmap_threshold_label(heatmap):
@@ -106,9 +111,9 @@ def test_svc_color_hist(cars, notcars):
     spatial = 32
     histbin = 32
 
-    car_features = extract_features(cars, cspace='HSV', spatial_size=(spatial, spatial),
+    car_features = extract_features(cars, color_space='HSV', spatial_size=(spatial, spatial),
                                     hist_bins=histbin, hist_range=(0, 256))
-    notcar_features = extract_features(notcars, cspace='HSV', spatial_size=(spatial, spatial),
+    notcar_features = extract_features(notcars, color_space='HSV', spatial_size=(spatial, spatial),
                                        hist_bins=histbin, hist_range=(0, 256))
 
     # TODO: Move Normalization Post Test/Train Split
@@ -150,21 +155,32 @@ def test_svc_color_hist(cars, notcars):
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
 
-def test_svc_color_hog_hist(cars, notcars):
+def train_svc_with_color_hog_hist(cars, notcars):
     # TODO: Tweak these parameters and see how the results change.
-    colorspace = COLORSPACE
+    color_space = COLORSPACE
     orient = ORIENT
     pix_per_cell = PIX_PER_CELL
     cell_per_block = CELL_PER_BLOCK
     hog_channel = HOG_CHANNEL
+    spatial_size = SPATIAL_SIZE
+    hist_bins = HIST_BINS
+    spatial_feat = SPATIAL_FEAT
+    hist_feat = HIST_FEAT
+    hog_feat = HOG_FEAT
 
     t = time.time()
-    car_features = extract_features_hog(cars, cspace=colorspace, orient=orient,
-                                        pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                        hog_channel=hog_channel)
-    notcar_features = extract_features_hog(notcars, cspace=colorspace, orient=orient,
-                                           pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
-                                           hog_channel=hog_channel)
+    car_features = extract_features_hog(cars, color_space=color_space,
+                                        spatial_size=spatial_size, hist_bins=hist_bins,
+                                        orient=orient, pix_per_cell=pix_per_cell,
+                                        cell_per_block=cell_per_block,
+                                        hog_channel=hog_channel, spatial_feat=spatial_feat,
+                                        hist_feat=hist_feat, hog_feat=hog_feat)
+    notcar_features = extract_features_hog(notcars, color_space=color_space,
+                                           spatial_size=spatial_size, hist_bins=hist_bins,
+                                           orient=orient, pix_per_cell=pix_per_cell,
+                                           cell_per_block=cell_per_block,
+                                           hog_channel=hog_channel, spatial_feat=spatial_feat,
+                                           hist_feat=hist_feat, hog_feat=hog_feat)
     t2 = time.time()
     print(round(t2-t, 2), 'Seconds to extract HOG features...')
     # Create an array stack of feature vectors
@@ -180,7 +196,7 @@ def test_svc_color_hog_hist(cars, notcars):
     # Split up data into randomized training and test sets
     rand_state = np.random.randint(0, 100)
     X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
+        scaled_X, y, test_size=TRAIN_TEST_SPLIT, random_state=rand_state)
 
     print('Using:',orient,'orientations',pix_per_cell,
           'pixels per cell and', cell_per_block,'cells per block')
@@ -203,10 +219,10 @@ def test_svc_color_hog_hist(cars, notcars):
     t2 = time.time()
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
-    joblib_save([scaled_X, y], SAVE_DIR + 'dataset_%d.p' % (accuracy * 100))
+    joblib_save([X_scaler, scaled_X, y], SAVE_DIR + 'dataset_%d.p' % (accuracy * 100))
     joblib_save(svc, SAVE_DIR + 'model_%d.p' % (accuracy * 100))
 
-    return svc, [scaled_X, y], accuracy
+    return svc, [X_scaler, scaled_X, y], accuracy
 
 
 def test_sliding_window(image):
@@ -252,98 +268,70 @@ def test_draw_labelled_image(filename, box_list_pickle_file):
     fig.tight_layout()
 
 
-def test_slide_search_window(cars, notcars):
-    # TODO: Tweak these parameters and see how the results change.
-    color_space = COLORSPACE
-    orient = 9   # HOG orientations
-    pix_per_cell = 8  # HOG pixels per cell
-    cell_per_block = 2  # HOG cells per block
-    hog_channel = 0  # Can be 0, 1, 2, or "ALL"
-    spatial_size = (16, 16)  # Spatial binning dimensions
-    hist_bins = 16    # Number of histogram bins
-    spatial_feat = True  # Spatial features on or off
-    hist_feat = True  # Histogram features on or off
-    hog_feat = True  # HOG features on or off
-    y_start_stop = Y_START_STOP  # Min and max in y to search in slide_window()
-
-    car_features = extract_features(cars, color_space=color_space,
-                                    spatial_size=spatial_size, hist_bins=hist_bins,
-                                    orient=orient, pix_per_cell=pix_per_cell,
-                                    cell_per_block=cell_per_block,
-                                    hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                    hist_feat=hist_feat, hog_feat=hog_feat)
-    notcar_features = extract_features(notcars, color_space=color_space,
-                                       spatial_size=spatial_size, hist_bins=hist_bins,
-                                       orient=orient, pix_per_cell=pix_per_cell,
-                                       cell_per_block=cell_per_block,
-                                       hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                       hist_feat=hist_feat, hog_feat=hog_feat)
-
+def train_or_load_model(cars, notcars):
+    # train or load model
     if MODEL_FILE and DATASET_FILE:
         detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
         svc = detector.svc
-        [scaled_X, y] = [detector.scaled_X, detector.y]
+        [X_scaler, scaled_X, y] = [detector.X_scaler, detector.scaled_X, detector.y]
     else:
-        X = np.vstack((car_features, notcar_features)).astype(np.float64)
-        # Fit a per-column scaler
-        X_scaler = StandardScaler().fit(X)
-        # Apply the scaler to X
-        scaled_X = X_scaler.transform(X)
+        svc, [X_scaler, scaled_X, y], _ = train_svc_with_color_hog_hist(cars, notcars)
 
-        # Define the labels vector
-        y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
+    return svc, [X_scaler, scaled_X, y]
 
-        # Split up data into randomized training and test sets
-        rand_state = np.random.randint(0, 100)
-        X_train, X_test, y_train, y_test = train_test_split(
-            scaled_X, y, test_size=0.2, random_state=rand_state)
 
-        print('Using:',orient,'orientations',pix_per_cell,
-              'pixels per cell and', cell_per_block,'cells per block')
-        print('Feature vector length:', len(X_train[0]))
-        # Use a linear SVC
-        svc = LinearSVC()
-        # Check the training time for the SVC
-        t = time.time()
-        svc.fit(X_train, y_train)
-        t2 = time.time()
-        print(round(t2-t, 2), 'Seconds to train SVC...')
-        # Check the score of the SVC
-        print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
-        # Check the prediction time for a single sample
+def test_slide_search_window(filenames, cars, notcars):
+    color_space = COLORSPACE
+    orient = ORIENT
+    pix_per_cell = PIX_PER_CELL
+    cell_per_block = CELL_PER_BLOCK
+    hog_channel = HOG_CHANNEL
+    spatial_size = SPATIAL_SIZE
+    hist_bins = HIST_BINS
+    spatial_feat = SPATIAL_FEAT
+    hist_feat = HIST_FEAT
+    hog_feat = HOG_FEAT
 
-    image = mpimg.imread('bbox-example-image.jpg')
-    draw_image = np.copy(image)
+    svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
 
-    # Uncomment the following line if you extracted training
-    # data from .png images (scaled 0 to 1 by mpimg) and the
-    # image you are searching is a .jpg (scaled 0 to 255)
-    # image = image.astype(np.float32)/255
+    y_start_stop = Y_START_STOP
+    xy_window = XY_WINDOW
+    xy_overlap = XY_OVERLAP
 
-    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=y_start_stop,
-                           xy_window=(96, 96), xy_overlap=(0.5, 0.5))
+    for filename in filenames:
+        start = time.time()
+        image = mpimg.imread(filename)
+        draw_image = np.copy(image)
 
-    hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space,
-                                 spatial_size=spatial_size, hist_bins=hist_bins,
-                                 orient=orient, pix_per_cell=pix_per_cell,
-                                 cell_per_block=cell_per_block,
-                                 hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                 hist_feat=hist_feat, hog_feat=hog_feat)
+        # Uncomment the following line if you extracted training
+        # data from .png images (scaled 0 to 1 by mpimg) and the
+        # image you are searching is a .jpg (scaled 0 to 255)
+        image = image.astype(np.float32)/255
 
-    window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+        windows = slide_window(image, x_start_stop=[None, None], y_start_stop=y_start_stop,
+                               xy_window=xy_window, xy_overlap=xy_overlap)
 
-    plt.imshow(window_img)
+        hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space,
+                                     spatial_size=spatial_size, hist_bins=hist_bins,
+                                     orient=orient, pix_per_cell=pix_per_cell,
+                                     cell_per_block=cell_per_block,
+                                     hog_channel=hog_channel, spatial_feat=spatial_feat,
+                                     hist_feat=hist_feat, hog_feat=hog_feat)
+
+        window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+        end = time.time()
+        print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start, len(hot_windows), len(windows)))
+        display(window_img, filename)
 
 
 def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')
-    num_samples = 2
+    num_samples = NUM_SAMPLES
     cars, notcars = cars[:num_samples], notcars[:num_samples]
+    # train_svc_with_color_hog_hist(cars, notcars)
     filenames = glob.glob(TEST_IMAGES_DIR + '*')
-
-    detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
-    # test_slide_search_window(cars, notcars)
+    test_slide_search_window(filenames, cars, notcars)
 
 
 if __name__ == '__main__':
