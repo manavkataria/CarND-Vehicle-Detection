@@ -32,7 +32,8 @@ from settings import (NUM_SAMPLES,
                       HIST_FEAT,
                       HOG_FEAT,
                       XY_WINDOW,
-                      XY_OVERLAP)
+                      XY_OVERLAP,
+                      HEAT_THRESHOLD)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -74,7 +75,9 @@ class VehicleDetection(object):
         else:
             [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
             # svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
-        self.init()
+
+        self.count = 0  # tdqm
+        self.init()     # Feature Extraction and Sliding Window Search Params
 
     def init(self):
         # Features Extraction
@@ -95,29 +98,41 @@ class VehicleDetection(object):
         self.xy_overlap = XY_OVERLAP
 
     def sliding_window_search(self, image):
-        start = time.time()
-        # Uncomment the following line if you extracted training
-        # data from .png images (scaled 0 to 1 by mpimg) and the
-        # image you are searching is a .jpg (scaled 0 to 255)
-        image = image.astype(np.float32)/255
+        try:
+            start = time.time()
+            # Uncomment the following line if you extracted training
+            # data from .png images (scaled 0 to 1 by mpimg) and the
+            # image you are searching is a .jpg (scaled 0 to 255)
+            image = image.astype(np.float32)/255
 
-        windows = slide_window(image, x_start_stop=[None, None], y_start_stop=self.y_start_stop,
-                               xy_window=self.xy_window, xy_overlap=self.xy_overlap)
+            windows = slide_window(image, x_start_stop=[None, None], y_start_stop=self.y_start_stop,
+                                   xy_window=self.xy_window, xy_overlap=self.xy_overlap)
 
-        hot_windows = search_windows(image, windows, self.svc, self.X_scaler,
-                                     color_space=self.color_space,
-                                     spatial_size=self.spatial_size, hist_bins=self.hist_bins,
-                                     orient=self.orient, pix_per_cell=self.pix_per_cell,
-                                     cell_per_block=self.cell_per_block,
-                                     hog_channel=self.hog_channel, spatial_feat=self.spatial_feat,
-                                     hist_feat=self.hist_feat, hog_feat=self.hog_feat)
-        end = time.time()
-        draw_image = np.copy(image)
-        window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
-        print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
-                                                                         len(hot_windows), len(windows)))
-        return window_img
+            hot_windows = search_windows(image, windows, self.svc, self.X_scaler,
+                                         color_space=self.color_space,
+                                         spatial_size=self.spatial_size, hist_bins=self.hist_bins,
+                                         orient=self.orient, pix_per_cell=self.pix_per_cell,
+                                         cell_per_block=self.cell_per_block,
+                                         hog_channel=self.hog_channel, spatial_feat=self.spatial_feat,
+                                         hist_feat=self.hist_feat, hog_feat=self.hog_feat)
+            end = time.time()
+            self.windows = windows
+            self.hot_windows = hot_windows
+            draw_image = np.copy(image)
+            window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+            print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
+                                                                             len(hot_windows), len(windows)))
+            heat_thresholded_image, heatmap = heat_and_threshold(image, window_img, threshold=HEAT_THRESHOLD)
 
+            self.save = heat_thresholded_image
+        except:
+            mpimg.imsave('hard/%d.jpg' % self.count, image)
+            debug('Error: Issue at Frame %d' % self.count)
+            heat_thresholded_image = self.save
+
+        self.count += 1
+
+        return heat_thresholded_image
 
 
 def test_heatmap_threshold_label(heatmap):
@@ -279,30 +294,26 @@ def test_sliding_window(image):
     plt.imshow(window_img)
 
 
-def test_draw_labelled_image(filename, box_list_pickle_file):
-    # Read in a pickle file with bboxes saved
-    # Each item in the "all_bboxes" list will contain a
-    # list of boxes for one of the images shown above
-    box_list = pickle.load(open(box_list_pickle_file, "rb"))
-
-    # Read in image similar to one shown above
-    image = mpimg.imread(filename)
+def heat_and_threshold(image, box_list, HEAT_THRESHOLD=1):
     heat = np.zeros_like(image[:,:,0]).astype(np.float)
 
-    # ---
-
     # Add heat to each box in box list
-    heat = add_heat(heat,box_list)
+    heat = add_heat(heat, box_list)
 
     # Apply threshold to help remove false positives
-    heat = apply_threshold(heat,1)
+    heat = apply_threshold(heat, HEAT_THRESHOLD)
 
     # Visualize the heatmap when displaying
     heatmap = np.clip(heat, 0, 255)
 
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
-    draw_img = draw_labeled_bboxes(np.copy(image), labels)
+    draw_img = draw_labeled_bboxes(image, labels)
+    return draw_img, heatmap
+
+
+def test_draw_labelled_image(image, box_list):
+    draw_img, heatmap = heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
 
     fig = plt.figure()
     plt.subplot(121)
@@ -343,7 +354,12 @@ def test_slide_search_window(filenames, cars, notcars, video=False):
         for filename in filenames:
             image = mpimg.imread(filename)
             window_img = detector.sliding_window_search(image)
-            display(window_img, filename)
+            test_draw_labelled_image(image, detector.hot_windows)
+            # heat = np.zeros_like(image[:,:,0]).astype(np.float)
+            # # Add heat to each box in box list
+            # heat = add_heat(heat, detector.hot_windows)
+            # # Apply threshold to help remove false positives
+            # heat = apply_threshold(heat, 1)
 
 
 def main():
@@ -353,7 +369,7 @@ def main():
     cars, notcars = cars[:num_samples], notcars[:num_samples]
     # train_svc_with_color_hog_hist(cars, notcars)
     filenames = glob.glob(TEST_IMAGES_DIR + '*')
-    test_slide_search_window(filenames, cars, notcars)
+    test_slide_search_window(filenames, cars, notcars, video=False)
 
 
 if __name__ == '__main__':

@@ -41,6 +41,8 @@ Y_START_STOP = [400, 656]  # Min and max in y to search in slide_window()
 XY_WINDOW = (96, 96)
 XY_OVERLAP = (0.70, 0.70)
 
+# Heatmap and Threshold
+HEAT_THRESHOLD = 1
 
 # Pickled Dataset and Model
 TRAIN = False
