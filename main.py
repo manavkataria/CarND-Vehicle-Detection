@@ -33,7 +33,8 @@ from settings import (NUM_SAMPLES,
                       HOG_FEAT,
                       XY_WINDOW,
                       XY_OVERLAP,
-                      HEAT_THRESHOLD)
+                      HEAT_THRESHOLD,
+                      VIDEO_MODE)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -119,18 +120,27 @@ class VehicleDetection(object):
             self.windows = windows
             self.hot_windows = hot_windows
             draw_image = np.copy(image)
-            window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+            # window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
             print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
                                                                              len(hot_windows), len(windows)))
-            heat_thresholded_image, heatmap = heat_and_threshold(image, window_img, threshold=HEAT_THRESHOLD)
+            heat_thresholded_image, thresholded_heatmap, labels = heat_and_threshold(draw_image, self.hot_windows, threshold=1)
+
+            # title1 = 'Car Positions (#Detections: %d)' % (labels[1])
+            # title2 = 'Thresholded Heat Map (Max: %d)' % int(np.max(thresholded_heatmap))
+            # imcompare(heat_thresholded_image, thresholded_heatmap, title1, title2, cmap2='hot')
 
             self.save = heat_thresholded_image
         except:
+            import ipdb; ipdb.set_trace()
             mpimg.imsave('hard/%d.jpg' % self.count, image)
             debug('Error: Issue at Frame %d' % self.count)
             heat_thresholded_image = self.save
 
         self.count += 1
+
+        if VIDEO_MODE:
+            # Scale Back to Format acceptable by moviepy
+            heat_thresholded_image = heat_thresholded_image.astype(np.float32) * 255
 
         return heat_thresholded_image
 
@@ -138,7 +148,7 @@ class VehicleDetection(object):
 def test_heatmap_threshold_label(heatmap):
     heatmap = apply_threshold(heatmap, 2)
     labels = label(heatmap)
-    print(labels[1], 'cars found')
+    # print(labels[1], 'cars found')
     plt.imshow(labels[0], cmap='gray')
 
 
@@ -294,14 +304,14 @@ def test_sliding_window(image):
     plt.imshow(window_img)
 
 
-def heat_and_threshold(image, box_list, HEAT_THRESHOLD=1):
+def heat_and_threshold(image, box_list, threshold=1):
     heat = np.zeros_like(image[:,:,0]).astype(np.float)
 
     # Add heat to each box in box list
     heat = add_heat(heat, box_list)
 
     # Apply threshold to help remove false positives
-    heat = apply_threshold(heat, HEAT_THRESHOLD)
+    heat = apply_threshold(heat, threshold)
 
     # Visualize the heatmap when displaying
     heatmap = np.clip(heat, 0, 255)
@@ -309,20 +319,13 @@ def heat_and_threshold(image, box_list, HEAT_THRESHOLD=1):
     # Find final boxes from heatmap using label function
     labels = label(heatmap)
     draw_img = draw_labeled_bboxes(image, labels)
-    return draw_img, heatmap
+    return draw_img, heatmap, labels
 
 
 def test_draw_labelled_image(image, box_list):
-    draw_img, heatmap = heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
-
-    fig = plt.figure()
-    plt.subplot(121)
-    plt.imshow(draw_img)
-    plt.title('Car Positions')
-    plt.subplot(122)
-    plt.imshow(heatmap, cmap='hot')
-    plt.title('Heat Map')
-    fig.tight_layout()
+    draw_img, heatmap, labels = heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
+    title1 = 'Car Positions (%d)' % (labels[1])
+    imcompare(draw_img, heatmap, title1, 'Heat Map', cmap2='hot')
 
 
 def train_or_load_model(cars, notcars):
@@ -354,12 +357,7 @@ def test_slide_search_window(filenames, cars, notcars, video=False):
         for filename in filenames:
             image = mpimg.imread(filename)
             window_img = detector.sliding_window_search(image)
-            test_draw_labelled_image(image, detector.hot_windows)
-            # heat = np.zeros_like(image[:,:,0]).astype(np.float)
-            # # Add heat to each box in box list
-            # heat = add_heat(heat, detector.hot_windows)
-            # # Apply threshold to help remove false positives
-            # heat = apply_threshold(heat, 1)
+            # test_draw_labelled_image(image, detector.hot_windows)
 
 
 def main():
@@ -369,7 +367,7 @@ def main():
     cars, notcars = cars[:num_samples], notcars[:num_samples]
     # train_svc_with_color_hog_hist(cars, notcars)
     filenames = glob.glob(TEST_IMAGES_DIR + '*')
-    test_slide_search_window(filenames, cars, notcars, video=False)
+    test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 
 if __name__ == '__main__':

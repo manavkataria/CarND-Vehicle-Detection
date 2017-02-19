@@ -37,9 +37,9 @@ def display(image, msg='Image', cmap=None):
 def imcompare(image1, image2, msg1='Image1', msg2='Image2', cmap1=None, cmap2=None):
     if DISPLAY is False: return
 
-    if image1.ndim == 2:
+    if cmap1 is None and image1.ndim == 2:
         cmap1 = 'gray'
-    if image2.ndim == 2:
+    if cmap2 is None and image2.ndim == 2:
         cmap2 = 'gray'
 
     # Plot the result
@@ -391,6 +391,7 @@ def draw_labeled_bboxes(image, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
-        cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)
+        color_blue = (0, 0, 1)
+        cv2.rectangle(img, bbox[0], bbox[1], color_blue, 6)
     # Return the image
     return img

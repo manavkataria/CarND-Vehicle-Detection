@@ -4,9 +4,11 @@
 DEBUG = True
 DISPLAY = True
 NUM_SAMPLES = None
+VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
 
 # Video Input
-INPUT_VIDEOFILE = 'project_video.mp4'
+# INPUT_VIDEOFILE = 'project_video.mp4'
+INPUT_VIDEOFILE = 'test_video.mp4'
 OUTPUT_DIR = 'output_images/'
 
 # Save
