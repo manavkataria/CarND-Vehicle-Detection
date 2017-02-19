@@ -44,7 +44,8 @@ from utils import (draw_boxes,
                    joblib_save,
                    joblib_load,
                    imcompare,
-                   display)
+                   display,
+                   debug)
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -72,6 +73,51 @@ class VehicleDetection(object):
             [self.X_scaler, self.scaled_X, self.y] = joblib_load(dataset_file)
         else:
             [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
+            # svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
+        self.init()
+
+    def init(self):
+        # Features Extraction
+        self.color_space = COLORSPACE
+        self.orient = ORIENT
+        self.pix_per_cell = PIX_PER_CELL
+        self.cell_per_block = CELL_PER_BLOCK
+        self.hog_channel = HOG_CHANNEL
+        self.spatial_size = SPATIAL_SIZE
+        self.hist_bins = HIST_BINS
+        self.spatial_feat = SPATIAL_FEAT
+        self.hist_feat = HIST_FEAT
+        self.hog_feat = HOG_FEAT
+
+        # Sliding Window Search
+        self.y_start_stop = Y_START_STOP
+        self.xy_window = XY_WINDOW
+        self.xy_overlap = XY_OVERLAP
+
+    def sliding_window_search(self, image):
+        start = time.time()
+        # Uncomment the following line if you extracted training
+        # data from .png images (scaled 0 to 1 by mpimg) and the
+        # image you are searching is a .jpg (scaled 0 to 255)
+        image = image.astype(np.float32)/255
+
+        windows = slide_window(image, x_start_stop=[None, None], y_start_stop=self.y_start_stop,
+                               xy_window=self.xy_window, xy_overlap=self.xy_overlap)
+
+        hot_windows = search_windows(image, windows, self.svc, self.X_scaler,
+                                     color_space=self.color_space,
+                                     spatial_size=self.spatial_size, hist_bins=self.hist_bins,
+                                     orient=self.orient, pix_per_cell=self.pix_per_cell,
+                                     cell_per_block=self.cell_per_block,
+                                     hog_channel=self.hog_channel, spatial_feat=self.spatial_feat,
+                                     hist_feat=self.hist_feat, hog_feat=self.hog_feat)
+        end = time.time()
+        draw_image = np.copy(image)
+        window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
+        print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
+                                                                         len(hot_windows), len(windows)))
+        return window_img
+
 
 
 def test_heatmap_threshold_label(heatmap):
@@ -280,48 +326,24 @@ def train_or_load_model(cars, notcars):
     return svc, [X_scaler, scaled_X, y]
 
 
-def test_slide_search_window(filenames, cars, notcars):
-    color_space = COLORSPACE
-    orient = ORIENT
-    pix_per_cell = PIX_PER_CELL
-    cell_per_block = CELL_PER_BLOCK
-    hog_channel = HOG_CHANNEL
-    spatial_size = SPATIAL_SIZE
-    hist_bins = HIST_BINS
-    spatial_feat = SPATIAL_FEAT
-    hist_feat = HIST_FEAT
-    hog_feat = HOG_FEAT
+def test_slide_search_window(filenames, cars, notcars, video=False):
 
-    svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
+    detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
 
-    y_start_stop = Y_START_STOP
-    xy_window = XY_WINDOW
-    xy_overlap = XY_OVERLAP
-
-    for filename in filenames:
-        start = time.time()
-        image = mpimg.imread(filename)
-        draw_image = np.copy(image)
-
-        # Uncomment the following line if you extracted training
-        # data from .png images (scaled 0 to 1 by mpimg) and the
-        # image you are searching is a .jpg (scaled 0 to 255)
-        image = image.astype(np.float32)/255
-
-        windows = slide_window(image, x_start_stop=[None, None], y_start_stop=y_start_stop,
-                               xy_window=xy_window, xy_overlap=xy_overlap)
-
-        hot_windows = search_windows(image, windows, svc, X_scaler, color_space=color_space,
-                                     spatial_size=spatial_size, hist_bins=hist_bins,
-                                     orient=orient, pix_per_cell=pix_per_cell,
-                                     cell_per_block=cell_per_block,
-                                     hog_channel=hog_channel, spatial_feat=spatial_feat,
-                                     hist_feat=hist_feat, hog_feat=hog_feat)
-
-        window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
-        end = time.time()
-        print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start, len(hot_windows), len(windows)))
-        display(window_img, filename)
+    if video:
+        # Video Mode
+        debug('Processing Video: ', INPUT_VIDEOFILE)
+        input_videoclip = VideoFileClip(INPUT_VIDEOFILE)
+        output_videofile = OUTPUT_DIR + INPUT_VIDEOFILE[:-4] + '_output.mp4'
+        # NOTE: this function expects color images!
+        vehicle_tracking_videoclip = input_videoclip.fl_image(detector.sliding_window_search)
+        vehicle_tracking_videoclip.write_videofile(output_videofile, audio=False)
+    else:
+        # Debug & Test Images Mode
+        for filename in filenames:
+            image = mpimg.imread(filename)
+            window_img = detector.sliding_window_search(image)
+            display(window_img, filename)
 
 
 def main():
