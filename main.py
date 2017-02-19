@@ -20,7 +20,8 @@ from settings import (TEST_IMAGES_DIR,
                       ORIENT,
                       PIX_PER_CELL,
                       CELL_PER_BLOCK,
-                      HOG_CHANNEL)
+                      HOG_CHANNEL,
+                      Y_START_STOP)
 from utils import (draw_boxes,
                    color_hist,
                    bin_spatial,
@@ -183,11 +184,15 @@ def test_svc_color_hog_hist(cars, notcars):
     print('For these',n_predict, 'labels: ', y_test[0:n_predict])
     t2 = time.time()
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
+
+    joblib_save([scaled_X, y], SAVE_DIR + 'dataset_%d.p' % (accuracy * 100))
+    joblib_save(svc, SAVE_DIR + 'model_%d.p' % (accuracy * 100))
+
     return svc, [scaled_X, y], accuracy
 
 
 def test_sliding_window(image):
-    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=[None, None],
+    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=Y_START_STOP,
                            xy_window=(128, 128), xy_overlap=(0.5, 0.5))
 
     window_img = draw_boxes(image, windows, color=(0, 0, 255), thick=6)
@@ -229,25 +234,9 @@ def test_draw_labelled_image(filename, box_list_pickle_file):
     fig.tight_layout()
 
 
-def test_slide_search_window():
-    # Read in cars and notcars
-    images = glob.glob('*.jpeg')
-    cars = []
-    notcars = []
-    for image in images:
-        if 'image' in image or 'extra' in image:
-            notcars.append(image)
-        else:
-            cars.append(image)
-
-    # Reduce the sample size because
-    # The quiz evaluator times out after 13s of CPU time
-    sample_size = 500
-    cars = cars[0:sample_size]
-    notcars = notcars[0:sample_size]
-
+def test_slide_search_window(cars, notcars):
     # TODO: Tweak these parameters and see how the results change.
-    color_space = 'HSV'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+    color_space = COLORSPACE
     orient = 9   # HOG orientations
     pix_per_cell = 8  # HOG pixels per cell
     cell_per_block = 2  # HOG cells per block
@@ -257,7 +246,7 @@ def test_slide_search_window():
     spatial_feat = True  # Spatial features on or off
     hist_feat = True  # Histogram features on or off
     hog_feat = True  # HOG features on or off
-    y_start_stop = [500, None]  # Min and max in y to search in slide_window()
+    y_start_stop = Y_START_STOP  # Min and max in y to search in slide_window()
 
     car_features = extract_features(cars, color_space=color_space,
                                     spatial_size=spatial_size, hist_bins=hist_bins,
@@ -327,11 +316,12 @@ def test_slide_search_window():
 def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')
-    num_samples = None
-    svc, [scaled_X, y], accuracy = test_svc_color_hog_hist(cars[:num_samples], notcars[:num_samples])
-    joblib_save([scaled_X, y], SAVE_DIR + 'dataset_%d.p' % accuracy * 100)
-    joblib_save(svc, SAVE_DIR + 'model_%d.' % accuracy * 100)
-    import ipdb; ipdb.set_trace()
+    num_samples = 2
+    cars, notcars = cars[:num_samples], notcars[:num_samples]
+
+    for filename in [*cars, *notcars]:
+        image = mpimg.imread(filename)
+        test_sliding_window(image)
 
 
 if __name__ == '__main__':

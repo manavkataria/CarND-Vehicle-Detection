@@ -21,8 +21,9 @@ NON_VEHICLES_DIR = 'non-vehicles/'      # 8968 Samples
 
 
 #
-COLORSPACE = 'YCrCb'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+COLORSPACE = 'HLS'  # Can be RGB*9717, HSV, LUV, HLS*9916, YUV, YCrCb*9899
 ORIENT = 9
 PIX_PER_CELL = 8
 CELL_PER_BLOCK = 2
 HOG_CHANNEL = 'ALL'  # Can be 0, 1, 2, or "ALL"
+Y_START_STOP = [500, None]
