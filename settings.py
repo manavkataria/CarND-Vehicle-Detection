@@ -27,3 +27,8 @@ PIX_PER_CELL = 8
 CELL_PER_BLOCK = 2
 HOG_CHANNEL = 'ALL'  # Can be 0, 1, 2, or "ALL"
 Y_START_STOP = [500, None]
+
+# Pickled Files
+ACCURACY = 9916
+MODEL_FILE = ('model_%d.p' % ACCURACY)
+DATASET_FILE = ('dataset_%d.p' % ACCURACY)

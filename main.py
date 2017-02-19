@@ -21,7 +21,9 @@ from settings import (TEST_IMAGES_DIR,
                       PIX_PER_CELL,
                       CELL_PER_BLOCK,
                       HOG_CHANNEL,
-                      Y_START_STOP)
+                      Y_START_STOP,
+                      MODEL_FILE,
+                      DATASET_FILE)
 from utils import (draw_boxes,
                    color_hist,
                    bin_spatial,
@@ -35,7 +37,9 @@ from utils import (draw_boxes,
                    add_heat,
                    apply_threshold,
                    draw_labeled_bboxes,
-                   joblib_save)
+                   joblib_save,
+                   joblib_load,
+                   imcompare)
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -49,6 +53,20 @@ from moviepy.editor import VideoFileClip
 # sliding window
 # hog
 # classifer/model
+
+
+def VehicleDetection(object):
+
+    def __init__(self, model_file=None, dataset_file=None):
+        if model_file:
+            self.svc = joblib_load(model_file)
+        else:
+            self.svc = None
+
+        if dataset_file:
+            [self.scaled_X, self.y] = joblib_load(dataset_file)
+        else:
+            [self.scaled_X, self.y] = [None, None]
 
 
 def test_heatmap_threshold_label(heatmap):
@@ -192,7 +210,7 @@ def test_svc_color_hog_hist(cars, notcars):
 
 
 def test_sliding_window(image):
-    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=Y_START_STOP,
+    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=[None, None],
                            xy_window=(128, 128), xy_overlap=(0.5, 0.5))
 
     window_img = draw_boxes(image, windows, color=(0, 0, 255), thick=6)
@@ -261,34 +279,38 @@ def test_slide_search_window(cars, notcars):
                                        hog_channel=hog_channel, spatial_feat=spatial_feat,
                                        hist_feat=hist_feat, hog_feat=hog_feat)
 
-    X = np.vstack((car_features, notcar_features)).astype(np.float64)
-    # Fit a per-column scaler
-    X_scaler = StandardScaler().fit(X)
-    # Apply the scaler to X
-    scaled_X = X_scaler.transform(X)
+    if MODEL_FILE and DATASET_FILE:
+        detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
+        svc = detector.svc
+        [scaled_X, y] = [detector.scaled_X, detector.y]
+    else:
+        X = np.vstack((car_features, notcar_features)).astype(np.float64)
+        # Fit a per-column scaler
+        X_scaler = StandardScaler().fit(X)
+        # Apply the scaler to X
+        scaled_X = X_scaler.transform(X)
 
-    # Define the labels vector
-    y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
+        # Define the labels vector
+        y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
 
-    # Split up data into randomized training and test sets
-    rand_state = np.random.randint(0, 100)
-    X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
+        # Split up data into randomized training and test sets
+        rand_state = np.random.randint(0, 100)
+        X_train, X_test, y_train, y_test = train_test_split(
+            scaled_X, y, test_size=0.2, random_state=rand_state)
 
-    print('Using:',orient,'orientations',pix_per_cell,
-          'pixels per cell and', cell_per_block,'cells per block')
-    print('Feature vector length:', len(X_train[0]))
-    # Use a linear SVC
-    svc = LinearSVC()
-    # Check the training time for the SVC
-    t = time.time()
-    svc.fit(X_train, y_train)
-    t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to train SVC...')
-    # Check the score of the SVC
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
-    # Check the prediction time for a single sample
-    t = time.time()
+        print('Using:',orient,'orientations',pix_per_cell,
+              'pixels per cell and', cell_per_block,'cells per block')
+        print('Feature vector length:', len(X_train[0]))
+        # Use a linear SVC
+        svc = LinearSVC()
+        # Check the training time for the SVC
+        t = time.time()
+        svc.fit(X_train, y_train)
+        t2 = time.time()
+        print(round(t2-t, 2), 'Seconds to train SVC...')
+        # Check the score of the SVC
+        print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
+        # Check the prediction time for a single sample
 
     image = mpimg.imread('bbox-example-image.jpg')
     draw_image = np.copy(image)
@@ -318,11 +340,16 @@ def main():
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')
     num_samples = 2
     cars, notcars = cars[:num_samples], notcars[:num_samples]
+    filenames = glob.glob(TEST_IMAGES_DIR + '*')
 
-    for filename in [*cars, *notcars]:
+    for filename in filenames:
         image = mpimg.imread(filename)
-        test_sliding_window(image)
+        boxed_image = test_sliding_window(image)
+        
+    # import ipdb; ipdb.set_trace()
 
+    # detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
+    # test_slide_search_window(cars, notcars)
 
 if __name__ == '__main__':
     main()
