@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from utils import debug
+
 
 class MovingAverage(object):
 
@@ -15,7 +17,7 @@ class MovingAverage(object):
         data is a dict with column keys to be added to memory
         """
         idx = self.counter % self.size
-        self.df.loc[idx] = data
+        self.df.loc[idx] = pd.Series(data)
 
         columns = self.df.columns.values
         moving_average = pd.DataFrame(columns=columns)
@@ -24,10 +26,12 @@ class MovingAverage(object):
             for col in columns:
                 moving_average[col] = self.df[col].values.mean(keepdims=True)
         except:
+            debug('Error! Unable to compute moving average')
             import ipdb; ipdb.set_trace()
             moving_average = None
+        finally:
+            self.counter += 1
 
-        self.counter += 1
         return moving_average
 
 
@@ -38,7 +42,7 @@ def test_new_ma():
         '2d': np.array([[1, 1],[2, 2]])
     }
 
-    ma = MovingAverage(columns=data.keys())
+    ma = MovingAverage(columns=data.keys(), size=1)
     print(ma.moving_average(data))
 
     # Genereate New Values
