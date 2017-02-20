@@ -45,8 +45,11 @@ class MovingAverage(object):
         moving_average = pd.DataFrame(columns=columns)
 
         try:
-            for col in columns:
-                moving_average[col] = self.df[col].values.mean(keepdims=True)
+            if len(self.df) > 1:
+                for col in columns:
+                    moving_average.loc[0, col] = self.df[col].values.sum()
+            else:
+                moving_average = self.df
         except Exception as e:
             debug('Error! Unable to compute moving average:', e)
             import ipdb; ipdb.set_trace()
@@ -72,19 +75,23 @@ def test_ma_size_1():
     for key, values in data.items():
         data[key] = values*2
 
+    print(data)
     print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
         data[key] = values*2
 
+    print(data)
     print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
         data[key] = values*2
 
+    print(data)
     print(ma.moving_average(data))
+
 
 def test_ma_size_5():
     data = {
@@ -100,19 +107,23 @@ def test_ma_size_5():
     for key, values in data.items():
         data[key] = values*2
 
+    print("New Row: ", data)
     print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
         data[key] = values*2
 
+    print("New Row: ", data)
     print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
         data[key] = values*2
 
+    print("New Row: ", data)
     print(ma.moving_average(data))
+
 
 def test_ma_list():
     data = {
@@ -144,7 +155,7 @@ def test_ma_list():
 
 
 def main():
-    test_ma_list()
+    test_ma_size_5()
 
 
 if __name__ == '__main__':
