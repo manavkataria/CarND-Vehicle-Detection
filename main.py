@@ -120,14 +120,9 @@ class VehicleDetection(object):
             self.windows = windows
             self.hot_windows = hot_windows
             draw_image = np.copy(image)
-            # window_img = draw_boxes(draw_image, hot_windows, color=(0, 0, 255), thick=6)
             print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
                                                                              len(hot_windows), len(windows)))
             heat_thresholded_image, thresholded_heatmap, labels = heat_and_threshold(draw_image, self.hot_windows, threshold=1)
-
-            # title1 = 'Car Positions (#Detections: %d)' % (labels[1])
-            # title2 = 'Thresholded Heat Map (Max: %d)' % int(np.max(thresholded_heatmap))
-            # imcompare(heat_thresholded_image, thresholded_heatmap, title1, title2, cmap2='hot')
 
             self.save = heat_thresholded_image
         except:
@@ -141,6 +136,10 @@ class VehicleDetection(object):
         if VIDEO_MODE:
             # Scale Back to Format acceptable by moviepy
             heat_thresholded_image = heat_thresholded_image.astype(np.float32) * 255
+        else:
+            title1 = 'Car Positions (#Detections: %d)' % (labels[1])
+            title2 = 'Thresholded Heat Map (Max: %d)' % int(np.max(thresholded_heatmap))
+            imcompare(heat_thresholded_image, thresholded_heatmap, title1, title2, cmap2='hot')
 
         return heat_thresholded_image
 
@@ -357,16 +356,13 @@ def test_slide_search_window(filenames, cars, notcars, video=False):
         for filename in filenames:
             image = mpimg.imread(filename)
             window_img = detector.sliding_window_search(image)
-            # test_draw_labelled_image(image, detector.hot_windows)
 
 
 def main():
-    cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')
-    notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')
-    num_samples = NUM_SAMPLES
-    cars, notcars = cars[:num_samples], notcars[:num_samples]
+    cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
+    notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     # train_svc_with_color_hog_hist(cars, notcars)
-    filenames = glob.glob(TEST_IMAGES_DIR + '*')
+    filenames = glob.glob(TEST_IMAGES_DIR + '*')[:NUM_SAMPLES]
     test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 
