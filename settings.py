@@ -3,9 +3,14 @@
 # Debug
 DEBUG = True
 DISPLAY = True
-NUM_SAMPLES = None  # Trim the sample space for efficient debugging
-VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
+NUM_SAMPLES = 2  # Trim the sample space for efficient debugging
+VIDEO_MODE = False   # Enabled/Disable Video Mode/Test Image Mode
 
+# Image Params
+IMAGE_WIDTH = 1280
+IMAGE_HEIGHT = 720
+IMAGE_DEPTH = 3
+IMAGE_DTYPE = 'float32'
 # Video Input
 # INPUT_VIDEOFILE = 'project_video.mp4'
 INPUT_VIDEOFILE = 'test_video.mp4'
@@ -14,7 +19,7 @@ OUTPUT_DIR = 'output_images/'
 # Save
 SAVE_DIR = 'save/'
 
-# Road Test
+# Test
 TEST_IMAGES_DIR = 'test_images/'
 
 # Training Directory

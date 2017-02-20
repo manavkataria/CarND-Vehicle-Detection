@@ -121,7 +121,27 @@ def hist(img):
     plt.show()
 
 
+def put_text(image, msg, x=50, y=700, size=1.5, color=(1, 1, 1), thickness=4):
+
+    cv2.putText(image, msg, (x, y), cv2.FONT_HERSHEY_SIMPLEX, size,
+                color, thickness, cv2.LINE_AA)
+
+
+def weighted_img(base_img, overlaid_img, α=0.5, β=0.5, λ=0.):
+    """
+    `base_img`      Heavy Presence (100%)
+    `overlaid_img`  Minor Presence (50%)
+
+    The result image is computed as follows:
+        result = base_img * α + overlaid_img * β + λ
+
+    NOTE: overlaid_img and base_img must be the same shape!
+    """
+    assert (α + β == 1)
+    return cv2.addWeighted(base_img, α, overlaid_img, β, λ)
+
 # --- Project 5: Vehicle Detection & Tracking ---
+
 
 def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
     image = np.copy(img)

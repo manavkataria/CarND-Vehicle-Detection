@@ -9,6 +9,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from scipy.ndimage.measurements import label
 
+from moving_average import MovingAverage
+
 from settings import (NUM_SAMPLES,
                       TEST_IMAGES_DIR,
                       INPUT_VIDEOFILE,
@@ -34,7 +36,11 @@ from settings import (NUM_SAMPLES,
                       XY_WINDOW,
                       XY_OVERLAP,
                       HEAT_THRESHOLD,
-                      VIDEO_MODE)
+                      VIDEO_MODE,
+                      IMAGE_HEIGHT,
+                      IMAGE_WIDTH,
+                      IMAGE_DEPTH,
+                      IMAGE_DTYPE)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -47,7 +53,9 @@ from utils import (draw_boxes,
                    joblib_load,
                    imcompare,
                    display,
-                   debug)
+                   debug,
+                   put_text,
+                   weighted_img)
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -77,8 +85,15 @@ class VehicleDetection(object):
             [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
             # svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
 
-        self.count = 0  # tdqm
+        self.count = 0  # frame counter
         self.init()     # Feature Extraction and Sliding Window Search Params
+
+        # Compute Moving Average
+        self.columns = ['heat']
+        self.memory = MovingAverage(self.columns, size=20)
+
+        # Top Overlay
+        self.overlay = None
 
     def init(self):
         # Features Extraction
@@ -97,6 +112,51 @@ class VehicleDetection(object):
         self.y_start_stop = Y_START_STOP
         self.xy_window = XY_WINDOW
         self.xy_overlap = XY_OVERLAP
+
+    def update_overlay(self, image=None):
+        if image is None:
+            self.overlay = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_DEPTH), dtype=IMAGE_DTYPE)
+        else:
+            self.overlay = np.copy(image)
+            # Darken All Except Window Search Area
+            self.overlay[:Y_START_STOP[0], :, :] = 0
+            self.overlay[Y_START_STOP[1]:, :, :] = 0
+
+
+    def moving_average(self, data):
+        data_dict = {}
+        for i, value in enumerate(data):
+            key = self.columns[i]
+            data_dict[key] = value
+
+        return self.memory.moving_average(data_dict)
+
+    def heat_and_threshold(self, image, box_list, threshold=1):
+        heat = np.zeros_like(image[:,:,0]).astype(np.float)
+
+        # Add heat to each box in box list
+        raw_heat = add_heat(heat, box_list)
+
+        # Smoothen out heated windows based on time-averaging
+        avg_heat = self.moving_average([heat])['heat']
+
+        # Apply threshold to help remove false positives
+        raw_heat = apply_threshold(raw_heat, threshold)
+        avg_heat = apply_threshold(avg_heat, threshold)
+
+        # Visualize the heatmap when displaying
+        # TODO: if VideoMode; else (255)
+        raw_heatmap = np.clip(raw_heat, 0, 255)
+        avg_heatmap = np.clip(avg_heat, 0, 255)
+
+        # Find final boxes from heatmap using label function
+        raw_labels = label(raw_heatmap)
+        avg_labels = label(avg_heatmap)
+
+        # Overlap Raw with Avg
+        draw_img = draw_labeled_bboxes(image, raw_labels, color=(0, 1, 0))  # Green
+        draw_img = draw_labeled_bboxes(draw_img, avg_labels)
+        return draw_img, avg_heatmap, avg_labels
 
     def sliding_window_search(self, image):
         try:
@@ -120,23 +180,31 @@ class VehicleDetection(object):
             self.windows = windows
             self.hot_windows = hot_windows
             draw_image = np.copy(image)
-            print('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
-                                                                             len(hot_windows), len(windows)))
-            heat_thresholded_image, thresholded_heatmap, labels = heat_and_threshold(draw_image, self.hot_windows, threshold=1)
+            msg = 'Frame: %04d' % self.count
 
+            self.update_overlay(draw_image)
+            draw_image = weighted_img(draw_image, self.overlay)
+            put_text(draw_image, msg)
+            imcompare(image, draw_image)
+
+            heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, threshold=1)
             self.save = heat_thresholded_image
-        except:
-            import ipdb; ipdb.set_trace()
+
+        except Exception as e:
             mpimg.imsave('hard/%d.jpg' % self.count, image)
-            debug('Error: Issue at Frame %d' % self.count)
+            debug('Error(%s): Issue at Frame %d' % (str(e), self.count))
+            import ipdb; ipdb.set_trace()
             heat_thresholded_image = self.save
 
-        self.count += 1
+        finally:
+            self.count += 1
 
         if VIDEO_MODE:
             # Scale Back to Format acceptable by moviepy
             heat_thresholded_image = heat_thresholded_image.astype(np.float32) * 255
         else:
+            debug('%0.1f seconds/frame. #%d/%d hot-windows/windows/frame' % (end-start,
+                                                                             len(hot_windows), len(windows)))
             title1 = 'Car Positions (#Detections: %d)' % (labels[1])
             title2 = 'Thresholded Heat Map (Max: %d)' % int(np.max(thresholded_heatmap))
             imcompare(heat_thresholded_image, thresholded_heatmap, title1, title2, cmap2='hot')
@@ -144,47 +212,17 @@ class VehicleDetection(object):
         return heat_thresholded_image
 
 
-def test_heatmap_threshold_label(heatmap):
-    heatmap = apply_threshold(heatmap, 2)
-    labels = label(heatmap)
-    # print(labels[1], 'cars found')
-    plt.imshow(labels[0], cmap='gray')
-
-
-def test_color_hist(filename):
-    image = mpimg.imread(filename)
-    rh, gh, bh, bincen, feature_vec = color_hist(image, nbins=32, bins_range=(0, 256))
-
-    # Plot a figure with all three bar charts
-    if rh is not None:
-        fig = plt.figure(figsize=(12,3))
-        plt.subplot(131)
-        plt.bar(bincen, rh[0])
-        plt.xlim(0, 256)
-        plt.title('R Histogram')
-        plt.subplot(132)
-        plt.bar(bincen, gh[0])
-        plt.xlim(0, 256)
-        plt.title('G Histogram')
-        plt.subplot(133)
-        plt.bar(bincen, bh[0])
-        plt.xlim(0, 256)
-        plt.title('B Histogram')
-        fig.tight_layout()
-    else:
-        print('Your function is returning None for at least one variable...')
-
-
 def test_svc_color_hist(cars, notcars):
     # TODO play with these values to see how your classifier
     # performs under different binning scenarios
+	# TODO(Manav): Pending test after recent updates
     spatial = 32
     histbin = 32
 
-    car_features = extract_features(cars, color_space='HSV', spatial_size=(spatial, spatial),
-                                    hist_bins=histbin, hist_range=(0, 256))
-    notcar_features = extract_features(notcars, color_space='HSV', spatial_size=(spatial, spatial),
-                                       hist_bins=histbin, hist_range=(0, 256))
+    car_features = extract_features_hog(cars, color_space='HSV', spatial_size=(spatial, spatial),
+                                        hist_bins=histbin, hist_range=(0, 256), hog_feat=False)
+    notcar_features = extract_features_hog(notcars, color_space='HSV', spatial_size=(spatial, spatial),
+                                           hist_bins=histbin, hist_range=(0, 256), hog_feat=False)
 
     # TODO: Move Normalization Post Test/Train Split
 
@@ -303,26 +341,8 @@ def test_sliding_window(image):
     plt.imshow(window_img)
 
 
-def heat_and_threshold(image, box_list, threshold=1):
-    heat = np.zeros_like(image[:,:,0]).astype(np.float)
-
-    # Add heat to each box in box list
-    heat = add_heat(heat, box_list)
-
-    # Apply threshold to help remove false positives
-    heat = apply_threshold(heat, threshold)
-
-    # Visualize the heatmap when displaying
-    heatmap = np.clip(heat, 0, 255)
-
-    # Find final boxes from heatmap using label function
-    labels = label(heatmap)
-    draw_img = draw_labeled_bboxes(image, labels)
-    return draw_img, heatmap, labels
-
-
-def test_draw_labelled_image(image, box_list):
-    draw_img, heatmap, labels = heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
+def test_draw_labelled_image(vd, image, box_list):
+    draw_img, heatmap, labels = vd.heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
     title1 = 'Car Positions (%d)' % (labels[1])
     imcompare(draw_img, heatmap, title1, 'Heat Map', cmap2='hot')
 
