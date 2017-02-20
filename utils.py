@@ -121,8 +121,7 @@ def hist(img):
     plt.show()
 
 
-def put_text(image, msg, x=50, y=700, size=1.5, color=(1, 1, 1), thickness=4):
-
+def put_text(image, msg, x=50, y=695, size=1, color=(0.8, 0.8, 0.8), thickness=2):
     cv2.putText(image, msg, (x, y), cv2.FONT_HERSHEY_SIMPLEX, size,
                 color, thickness, cv2.LINE_AA)
 

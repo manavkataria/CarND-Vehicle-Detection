@@ -40,7 +40,9 @@ from settings import (NUM_SAMPLES,
                       IMAGE_HEIGHT,
                       IMAGE_WIDTH,
                       IMAGE_DEPTH,
-                      IMAGE_DTYPE)
+                      IMAGE_DTYPE,
+                      ACCURACY,
+                      MEMORY_SIZE)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -90,7 +92,7 @@ class VehicleDetection(object):
 
         # Compute Moving Average
         self.columns = ['heat']
-        self.memory = MovingAverage(self.columns, size=20)
+        self.memory = MovingAverage(self.columns, size=MEMORY_SIZE)
 
         # Top Overlay
         self.overlay = None
@@ -121,7 +123,6 @@ class VehicleDetection(object):
             # Darken All Except Window Search Area
             self.overlay[:Y_START_STOP[0], :, :] = 0
             self.overlay[Y_START_STOP[1]:, :, :] = 0
-
 
     def moving_average(self, data):
         data_dict = {}
@@ -180,13 +181,13 @@ class VehicleDetection(object):
             self.windows = windows
             self.hot_windows = hot_windows
             draw_image = np.copy(image)
-            msg = 'Frame: %04d' % self.count
+            msg = 'Frame: %04d | Memory: %d | Threshold: %d | Accuracy: %0.1f%%' % (self.count, MEMORY_SIZE, HEAT_THRESHOLD, ACCURACY/100)
 
             self.update_overlay(draw_image)
             draw_image = weighted_img(draw_image, self.overlay)
             put_text(draw_image, msg)
 
-            heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, threshold=1)
+            heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, threshold=HEAT_THRESHOLD)
             self.save = heat_thresholded_image
 
         except Exception as e:

@@ -48,8 +48,11 @@ Y_START_STOP = [400, 656]  # Min and max in y to search in slide_window()
 XY_WINDOW = (96, 96)
 XY_OVERLAP = (0.70, 0.70)
 
+# Averaging
+MEMORY_SIZE = 20
+
 # Heatmap and Threshold
-HEAT_THRESHOLD = 1
+HEAT_THRESHOLD = 20
 
 # Pickled Dataset and Model
 TRAIN = False
