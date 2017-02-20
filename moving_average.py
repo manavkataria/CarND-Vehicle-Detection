@@ -47,8 +47,8 @@ class MovingAverage(object):
         try:
             for col in columns:
                 moving_average[col] = self.df[col].values.mean(keepdims=True)
-        except Exception:
-            debug('Error! Unable to compute moving average: ' + Exception)
+        except Exception as e:
+            debug('Error! Unable to compute moving average:', e)
             import ipdb; ipdb.set_trace()
             moving_average = None
         finally:

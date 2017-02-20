@@ -3,8 +3,8 @@
 # Debug
 DEBUG = True
 DISPLAY = True
-NUM_SAMPLES = 2
-VIDEO_MODE = False   # Enabled/Disable Video Mode/Test Image Mode
+NUM_SAMPLES = None  # Trim the sample space for efficient debugging
+VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
 
 # Video Input
 # INPUT_VIDEOFILE = 'project_video.mp4'
