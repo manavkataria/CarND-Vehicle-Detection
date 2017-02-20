@@ -1,5 +1,7 @@
+#!/usr/bin/env ipython
 import pandas as pd
 import numpy as np
+import copy
 
 from utils import debug
 
@@ -10,12 +12,32 @@ class MovingAverage(object):
         self.df = pd.DataFrame(columns=columns)
         self.size = size     # Sliding Memory Window Size
         self.counter = 0     # Current Index Pointer/Conuter
+        self.incompatible_keys = []     # Bookkeeping for back and forth type conversions
+
+    def _to_numpy(self, data):
+        d = copy.deepcopy(data)
+        self.incompatible_keys = []
+        for key, value in d.items():
+            if isinstance(value, list):
+                d[key] = np.array(value)
+                self.incompatible_keys.append(key)
+        return d
+
+    def _to_list(self, data):
+        for key, value in data.items():
+            if key in self.incompatible_keys and isinstance(value, np.ndarray):
+                data[key] = value.tolist()
+        self.incompatible_keys = []
+        return data
 
     def moving_average(self, data):
         """
         Returns a Moving Average _after_ adding the current data to the series.
         data is a dict with column keys to be added to memory
         """
+
+        data = self._to_numpy(data)
+
         idx = self.counter % self.size
         self.df.loc[idx] = pd.Series(data)
 
@@ -25,17 +47,18 @@ class MovingAverage(object):
         try:
             for col in columns:
                 moving_average[col] = self.df[col].values.mean(keepdims=True)
-        except:
-            debug('Error! Unable to compute moving average')
+        except Exception:
+            debug('Error! Unable to compute moving average: ' + Exception)
             import ipdb; ipdb.set_trace()
             moving_average = None
         finally:
             self.counter += 1
 
-        return moving_average
+        ma_dict = moving_average.to_dict(orient='records')[0]
+        return self._to_list(ma_dict)
 
 
-def test_new_ma():
+def test_ma_size_1():
     data = {
         'scalar': 1,
         '1d': np.array([1, 2, 3, 4]),
@@ -63,41 +86,65 @@ def test_new_ma():
 
     print(ma.moving_average(data))
 
-
-def test_array_ma():
+def test_ma_size_5():
     data = {
-        'scalar': [1,],
-        '1d': [np.array([1, 2, 3, 4]),]
+        'scalar': 1,
+        '1d': np.array([1, 2, 3, 4]),
+        '2d': np.array([[1, 1],[2, 2]])
     }
 
-    df = pd.DataFrame(data)
-
-    print(df)
-
-    # Genereate New Values
-    for key, values in data.items():
-        data[key].append(values[-1]*2)
-
-    df = pd.DataFrame(data)
+    ma = MovingAverage(columns=data.keys(), size=5)
+    print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
-        data[key].append(values[-1]*2)
+        data[key] = values*2
+
+    print(ma.moving_average(data))
 
     # Genereate New Values
     for key, values in data.items():
-        data[key].append(values[-1]*2)
+        data[key] = values*2
 
-    newdf = pd.DataFrame(data)
-    import ipdb; ipdb.set_trace()
+    print(ma.moving_average(data))
 
-    rm = newdf.rolling(window=2,center=False).mean()
+    # Genereate New Values
+    for key, values in data.items():
+        data[key] = values*2
 
-    print(rm)
+    print(ma.moving_average(data))
+
+def test_ma_list():
+    data = {
+        'scalar': 1,
+        '1d': [1, 2, 3, 4],
+        '2d': [[1, 1],[2, 2]]
+    }
+
+    ma = MovingAverage(columns=data.keys(), size=1)
+    print(ma.moving_average(data))
+
+    # Genereate New Values
+    for key, values in data.items():
+        data[key] = values*1
+
+    print(ma.moving_average(data))
+
+    # Genereate New Values
+    for key, values in data.items():
+        data[key] = values*1
+
+    print(ma.moving_average(data))
+
+    # Genereate New Values
+    for key, values in data.items():
+        data[key] = values*1
+
+    print(ma.moving_average(data))
 
 
 def main():
-    test_new_ma()
+    test_ma_list()
 
 
 if __name__ == '__main__':
