@@ -399,7 +399,7 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 
-def draw_labeled_bboxes(image, labels, color=(0,0,1)):
+def draw_labeled_bboxes(image, labels, color=(0,0,1), thickness=6):
     img = np.copy(image)
     # Iterate through all detected cars
     for car_number in range(1, labels[1]+1):
@@ -411,6 +411,6 @@ def draw_labeled_bboxes(image, labels, color=(0,0,1)):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
-        cv2.rectangle(img, bbox[0], bbox[1], color, 6)
+        cv2.rectangle(img, bbox[0], bbox[1], color, thickness)
     # Return the image
     return img

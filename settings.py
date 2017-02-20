@@ -4,7 +4,7 @@
 DEBUG = True
 DISPLAY = True
 NUM_SAMPLES = 2  # Trim the sample space for efficient debugging
-VIDEO_MODE = False   # Enabled/Disable Video Mode/Test Image Mode
+VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
 
 # Image Params
 IMAGE_WIDTH = 1280

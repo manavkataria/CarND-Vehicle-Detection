@@ -154,7 +154,7 @@ class VehicleDetection(object):
         avg_labels = label(avg_heatmap)
 
         # Overlap Raw with Avg
-        draw_img = draw_labeled_bboxes(image, raw_labels, color=(0, 1, 0))  # Green
+        draw_img = draw_labeled_bboxes(image, raw_labels, color=(1, 0, 0), thickness=2)  # red
         draw_img = draw_labeled_bboxes(draw_img, avg_labels)
         return draw_img, avg_heatmap, avg_labels
 
@@ -185,7 +185,6 @@ class VehicleDetection(object):
             self.update_overlay(draw_image)
             draw_image = weighted_img(draw_image, self.overlay)
             put_text(draw_image, msg)
-            imcompare(image, draw_image)
 
             heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, threshold=1)
             self.save = heat_thresholded_image
