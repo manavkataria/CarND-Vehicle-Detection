@@ -42,7 +42,8 @@ from settings import (NUM_SAMPLES,
                       IMAGE_DEPTH,
                       IMAGE_DTYPE,
                       ACCURACY,
-                      MEMORY_SIZE)
+                      MEMORY_SIZE,
+                      TRAIN)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -155,7 +156,7 @@ class VehicleDetection(object):
         avg_labels = label(avg_heatmap)
 
         # Overlap Raw with Avg
-        draw_img = draw_labeled_bboxes(image, raw_labels, color=(1, 0, 0), thickness=2)  # red
+        draw_img = draw_labeled_bboxes(image, raw_labels, color=(1, 0, 0), thickness=2, meta=False)  # red
         draw_img = draw_labeled_bboxes(draw_img, avg_labels)
         return draw_img, avg_heatmap, avg_labels
 
@@ -349,7 +350,7 @@ def test_draw_labelled_image(vd, image, box_list):
 
 def train_or_load_model(cars, notcars):
     # train or load model
-    if MODEL_FILE and DATASET_FILE:
+    if not TRAIN and MODEL_FILE and DATASET_FILE:
         detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
         svc = detector.svc
         [X_scaler, scaled_X, y] = [detector.X_scaler, detector.scaled_X, detector.y]
