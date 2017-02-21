@@ -3,7 +3,7 @@
 # Debug
 DEBUG = True
 DISPLAY = True
-NUM_SAMPLES = 2  # Trim the sample space for efficient debugging
+NUM_SAMPLES = None  # Trim the sample space for efficient debugging
 VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
 
 # Image Params
@@ -49,10 +49,11 @@ XY_WINDOW = (96, 96)
 XY_OVERLAP = (0.70, 0.70)
 
 # Averaging
-MEMORY_SIZE = 20
+MEMORY_SIZE = 5
 
 # Heatmap and Threshold
-HEAT_THRESHOLD = 20
+HEAT_THRESHOLD = 5  # 15
+HEATMAP_METRICS = True
 
 # Pickled Dataset and Model
 TRAIN = False

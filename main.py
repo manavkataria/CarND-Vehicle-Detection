@@ -45,7 +45,8 @@ from settings import (NUM_SAMPLES,
                       ACCURACY,
                       MEMORY_SIZE,
                       TRAIN,
-                      DEBUG)
+                      DEBUG,
+                      HEATMAP_METRICS)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -135,28 +136,31 @@ class VehicleDetection(object):
 
         return self.memory.rolling_sum(data_dict)
 
-    def add_to_debugbar(self, base, inset, msg):
+    def add_to_debugbar(self, base, inset, msg, position='right'):
         # ysize = 400         # Size of Debug Bar in px
         text_ysize = 42     # Height of Text with Padding
         right_padding = 30  # Distance from Right Edge
         hz_centering_msg = 85
+        additional_text_offset = 5
 
         # Resize
         inset = cv2.resize(inset, None, fx=0.4, fy=0.4)
 
         # Position
-        (x, y) = (base.shape[1] - inset.shape[1] - right_padding*2), (text_ysize + right_padding)
+        if position == 'left':
+            (x, y) = (right_padding*2), (text_ysize + right_padding)
+        else:
+            (x, y) = (base.shape[1] - inset.shape[1] - right_padding*2), (text_ysize + right_padding)
 
         # Embed
         if inset.ndim == 2:
             # Adaptive Rescale and Convert to Color
-            # import ipdb; ipdb.set_trace()
             inset = cv2.cvtColor((inset/inset.max()).astype('float32'), cv2.COLOR_GRAY2RGB)
             # inset = cv2.cvtColor(((inset)*254./(inset.max())).astype('uint8'), cv2.COLOR_GRAY2RGB)
         base[y:y+inset.shape[0], x:x+inset.shape[1], :] = inset
 
         # Title Text
-        (xpos, ypos) = (x + hz_centering_msg), (text_ysize + 5)
+        (xpos, ypos) = (x + hz_centering_msg), (text_ysize + additional_text_offset)
         put_text(base, msg, xpos, ypos)
 
         return base
@@ -179,8 +183,8 @@ class VehicleDetection(object):
         raw_heatmap = np.clip(raw_heat, 0, 255)
         avg_heatmap = np.clip(avg_heat, 0, 255)
 
-        msg = 'Rolling Sum Heatmap'
-        image = self.add_to_debugbar(image, avg_heatmap, msg)
+        image = self.add_to_debugbar(image, avg_heatmap, 'Rolling Sum Heatmap', position='right')
+        image = self.add_to_debugbar(image, raw_heatmap, 'Current Frm Heatmap', position='left')
 
         # Find final boxes from heatmap using label function
         raw_labels = label(raw_heatmap)
@@ -188,7 +192,7 @@ class VehicleDetection(object):
 
         # Overlap Raw with Avg
         draw_img = draw_labeled_bboxes(image, raw_labels, color=(1, 0, 0), thickness=2, meta=False)  # red
-        draw_img = draw_labeled_bboxes(draw_img, avg_labels)
+        draw_img = draw_labeled_bboxes(draw_img, avg_labels, meta=HEATMAP_METRICS)
         return draw_img, avg_heatmap, avg_labels
 
     def sliding_window_search(self, image):
