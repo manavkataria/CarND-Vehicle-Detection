@@ -3,22 +3,7 @@
 
 Table of Contents
 =================
-   1. [Advanced Lane Lines](#advanced-lane-lines)
-      * [Pipeline](#pipeline)
-      * [Pipeline Images](#pipeline-images)
-   1. [Files](#files)
-      * [Usage](#usage)
-   1. [Challenges](#challenges)
-      * [Lack of Intuition](#lack-of-intuition)
-      * [Building Intuition with Visual Augmentation](#building-intuition-with-visual-augmentation)
-      * [Road Textures](#road-textures)
-   1. [Shortcomings &amp; Future Enhancements](#shortcomings--future-enhancements)
-      * [Enhancements for future](#enhancements-for-future)
-   1. [Acknowledgements &amp; References](#acknowledgements--references)
-
 ---
-
-# Advanced Lane Lines
 This video contains results and illustration of challenges encountered during this project:
 
 [![youtube thumb](https://cloud.githubusercontent.com/assets/2206789/22967459/670853b4-f31b-11e6-9eef-1493e728e7f9.jpg)](https://youtu.be/6lf099n2LkI)
@@ -26,68 +11,36 @@ This video contains results and illustration of challenges encountered during th
 ---
 
 ## Pipeline
-1. Camera Calibration
-   * RGB2Gray using `cv2.cvtColor`
-   * [Finding](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/camera.py#L36) and [Drawing](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/camera.py#L40) Corners using `cv2.findChessboardCorners` and `cv2.drawChessboardCorners`
-   * Identifying Camera Matrix and Distortion Coefficients using `cv2.calibrateCamera`
-   * [Undistort](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/camera.py#L56-L73)
-     * Cropped using `cv2.undistort`
-     * Uncropped additionally using `cv2.getOptimalNewCameraMatrix`
-   * Perspective Transform in `corners_unwarp`
+1. Basic Data Exploration
+   * Visually scanning the kind of images
+   * Plotting Color Space (RGB. HSV, YCrCb) Histograms of Images
+   * Validating that both "in class" and "out of class" samples have nearly equal sizes (Balanced Dataset)
+1. Feature Extraction from `car` and `notcar` classes in `extract_features_hog`
+   * `spatial_features`
+   * `hist_features`, and
+   * `hog_features`
+1. Training Car Detector
 2. Filters using [`filtering_pipeline`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L49-L86)
    * RGB to HSL
-   * H & L Color Threshold Filters
-   * Gradient, Magnitude and Direction Filters
    * Careful Combination of the above
    * Guassian Blur to eliminate noise `K=31`
 3. Lane Detection [`pipeline`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L294)
-   * [`undistort`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/camera.py#L56-L73)
-   * [`perspective_transform`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L96-L123)
-       * `crop_to_region_of_interest`
-   * [`filtering_pipeline`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L49-L86)
-   * [`fit_lane_lines`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L125)
-       * `left_fitx`
-       * `right_fitx`
-   using [`histogram[:midpoint]`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L136) and [`sliding window`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L160) to capture points forming a lane line along with 2nd Order Polynomial curve fitting, identifies
    * [`overlay_and_unwarp`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L238)
-       * Car's Trajectory `car_fitx`
-       * Lane Center `mid_fitx`
        * `fill_lane_polys`
-   * [`calculate_curvature`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L263)
-       * `left_curve_radius`
-       * `right_curve_radius`
-       * `off_centre_m`
    * [`put_metrics_on_image`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L285)
    * finally returning an _undistorted_ image
 4. [Save as Video.mp4  ](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L118)
 
 ## Pipeline Images
 
-### Camera Calibration > Undistort
-![screen shot 2017-02-15 at 3 23 28 am](https://cloud.githubusercontent.com/assets/2206789/22973046/3aeea448-f331-11e6-875b-e9f65db7a591.jpg)
-### Camera Calibration > Perspective Transform
-![screen shot 2017-02-15 at 3 24 07 am](https://cloud.githubusercontent.com/assets/2206789/22973069/557e48e0-f331-11e6-94f0-2e2668481503.jpg)
-
-### Lane Detection > Undistort
-![screen shot 2017-02-15 at 3 35 36 am](https://cloud.githubusercontent.com/assets/2206789/22973024/27513360-f331-11e6-809c-9af79a24d477.jpg)
-### Lane Detection > ROI Mask Overlay
-![screen shot 2017-02-15 at 3 36 01 am](https://cloud.githubusercontent.com/assets/2206789/22973023/274cea58-f331-11e6-9e1a-958faffd200b.jpg)
-### Lane Detection > Perspective Transform
-![screen shot 2017-02-15 at 3 36 19 am](https://cloud.githubusercontent.com/assets/2206789/22973022/274ba5d0-f331-11e6-9ac1-4032fac69ff7.jpg)
-### Lane Detection > Filtering Pipeline
-![screen shot 2017-02-15 at 3 36 35 am](https://cloud.githubusercontent.com/assets/2206789/22973021/274b031e-f331-11e6-8b95-88b172f3f00e.jpg)
-### Lane Detection > Offset and Curvature Identified
-![screen shot 2017-02-15 at 3 37 06 am](https://cloud.githubusercontent.com/assets/2206789/22973025/27523f94-f331-11e6-95ee-95d173fc15d9.jpg)
-Minor: Note the position from center is represented as a positive 0.2(m). Compare with images below.
+### Image1
 
 # Files
 The project was designed to be modular and reusable. The significant independent domains get their own `Class` and an individual file:
-  1. `camera.py` - Camera Calibration
-  1. `lanes.py` - Lane Detection
-  1. `main.py` - Main test runner with [`test_road_unwarp`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L89), [`test_calibrate_and_transform`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L33-L46) and [`test_filters`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L123)
+  1. `main.py` - Main test runner with `VehicleDetection` Class and test functions like `train_svc_with_color_hog_hist`, `test_sliding_window`, `train_or_load_model`.
   1. `utils.py` - Handy utils like [`imcompare`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/utils.py#L32),  [`warper`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/utils.py#L32), [`debug`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/utils.py#L14-L17) shared across modules
   1. `settings.py` - Settings shared across module
-  1. `moving_average.py` - `MovingAverage` class to compute moving average and rolling sum
+  1. `rolling_statistics.py` - `RollingStatistics` class to compute `moving_average` and `rolling_sum`
   1. `README.md` - description of the development process (this file)
 
 All files contain **detailed comments** to explain how the code works. Refer Udacity Repository [CarND-Advanced-Lane-Lines](https://github.com/udacity/CarND-Advanced-Lane-Lines/) - for calibration images, test images and test videos

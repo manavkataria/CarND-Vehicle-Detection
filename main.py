@@ -300,7 +300,6 @@ def test_svc_color_hist(cars, notcars):
 
 
 def train_svc_with_color_hog_hist(cars, notcars):
-    # TODO: Tweak these parameters and see how the results change.
     color_space = COLORSPACE
     orient = ORIENT
     pix_per_cell = PIX_PER_CELL
