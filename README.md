@@ -10,7 +10,8 @@ Table of Contents
 ---
 This video contains results and illustration of challenges encountered during this project:
 
-[![youtube thumb](https://cloud.githubusercontent.com/assets/2206789/22967459/670853b4-f31b-11e6-9eef-1493e728e7f9.jpg)](https://youtu.be/6lf099n2LkI)
+[![_youtube_thumb_](https://cloud.githubusercontent.com/assets/2206789/23159936/8714f320-f7d9-11e6-9b4f-9a1e55578246.jpg)](https://youtu.be/TJ0arL7OP3o)
+
 
 ---
 
@@ -19,21 +20,23 @@ This video contains results and illustration of challenges encountered during th
    * Visually scanning the kind of images
    * Plotting Color Space (RGB. HSV, YCrCb) Histograms of Images
    * Validating that both "in class" and "out of class" samples have nearly equal sizes (Balanced Dataset)
-1. Feature Extraction from `car` and `notcar` classes in `extract_features_hog`
-   * `spatial_features`
-   * `hist_features`, and
-   * `hog_features`
-1. Training Car Detector
-2. Filters using [`filtering_pipeline`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L49-L86)
-   * RGB to HSL
-   * Careful Combination of the above
-   * Guassian Blur to eliminate noise `K=31`
-3. Lane Detection [`pipeline`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L294)
-   * [`overlay_and_unwarp`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L238)
-       * `fill_lane_polys`
-   * [`put_metrics_on_image`](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/lanes.py#L285)
-   * finally returning an _undistorted_ image
-4. [Save as Video.mp4  ](https://github.com/manavkataria/carnd-advanced-lane-detection/blob/master/main.py#L118)
+1. Feature Extraction from `car` and `notcar` classes in [`extract_features_hog`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/utils.py#L229-L255) and [`single_img_features`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/utils.py#L303-L346)
+   * Image Spatial Features as `spatial_features`
+   * Image Color Histograms as `hist_features`, and
+   * Histogram of Oriented Gradients as `hog_features`
+1. Training Car Detector with [`train_or_load_model`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L379-L388) using LinearSVC in [`train_svc_with_color_hog_hist`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L348-L357)
+   * Initial classifier test accuracies was 90% _without HOG_
+   * Including HOG, experimentation & careful combination of [*hyperparameters*](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/settings.py#L31-L41) the accuracy rose up to 99%
+1. `Class` [Vehicle Detection  🚗](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L81)
+    * `__init__` - Initializes Instance Variables
+    * [`init`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L105-L121) - Feature Extraction and Sliding Window Search
+    * [*`memory`*](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L100-L101) - `RollingStatistics` object with a circular queue for saving `MEMORY_SIZE` number of previous frames. Leverages `Pandas` underneath. Pretty cool stuff! 😎
+    * Sliding Window Search Area Highlight
+    * [`rolling_sum`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L132-L139) - Gets a rolling_sum heatmap from `memory`
+    * [`add_to_debugbar`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L140-L167) - Insets debug information picture-in-picture or rather video-in-video. Quite professional, you see! 👔
+    * [`heat_and_threshold`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L169-L197)  - Computes the heatmaps🔥, labels and bounding boxes with [*metrics* for each labelled box](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/utils.py#L420-L425)
+    * `sliding_window_search` - Sliding window search utilizing [`memory`, `debug`🐛 and `exception` handling 🎇 ](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L218-L239)   * finally returning an _undistorted_ image
+1. [Save as Video.mp4]()
 
 ## Pipeline Images
 
@@ -91,13 +94,10 @@ TODO
 * **[Sagar Bhokre](https://github.com/sagarbhokre)** - for project skeleton & constant support
 * **[Caleb Kirksey](https://github.com/ckirksey3)** - for motivation and company
 * [CarND-Vehicle-Detection](https://github.com/udacity/CarND-Vehicle-Detection) - Udacity Repository test images and test videos
-
+* [Vehicle Training Set](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip) - to train the classifier
+* [Non Vehicle Training Set](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip) - to train the classifier  
 
 ========
-
-
-The Project
----
 
 The goals / steps of this project are the following:
 
@@ -107,11 +107,3 @@ The goals / steps of this project are the following:
 * Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
 * Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
 * Estimate a bounding box for vehicles detected.
-
-Here are links to the labeled data for [vehicle](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip) and [non-vehicle](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip) examples to train your classifier.  These example images come from a combination of the [GTI vehicle image database](http://www.gti.ssr.upm.es/data/Vehicle_database.html), the [KITTI vision benchmark suite](http://www.cvlibs.net/datasets/kitti/), and examples extracted from the project video itself.   You are welcome and encouraged to take advantage of the recently released [Udacity labeled dataset](https://github.com/udacity/self-driving-car/tree/master/annotations) to augment your training data.  
-
-Some example images for testing your pipeline on single frames are located in the `test_images` folder.  To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `ouput_images`, and include them in your writeup for the project by describing what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
-
-**As an optional challenge** Once you have a working pipeline for vehicle detection, add in your lane-finding algorithm from the last project to do simultaneous lane-finding and vehicle detection!
-
-**If you're feeling ambitious** (also totally optional though), don't stop there!  We encourage you to go out and take video of your own, and show us how you would implement this project on a new video!
