@@ -2,9 +2,9 @@
 import pandas as pd
 import numpy as np
 import copy
+import unittest
 
 from utils import debug
-
 
 class MovingAverage(object):
 
@@ -45,6 +45,35 @@ class MovingAverage(object):
         moving_average = pd.DataFrame(columns=columns)
 
         try:
+            for col in columns:
+                moving_average[col] = self.df[col].values.mean(keepdims=True)
+            else:
+                moving_average = self.df
+        except Exception as e:
+            debug('Error! Unable to compute moving average:', e)
+            # import ipdb; ipdb.set_trace()
+            moving_average = None
+        finally:
+            self.counter += 1
+
+        ma_dict = moving_average.to_dict(orient='records')[0]
+        return self._to_list(ma_dict)
+
+    def rolling_sum(self, data):
+        """
+        Returns a Moving Average _after_ adding the current data to the series.
+        data is a dict with column keys to be added to memory
+        """
+
+        data = self._to_numpy(data)
+
+        idx = self.counter % self.size
+        self.df.loc[idx] = pd.Series(data)
+
+        columns = self.df.columns.values
+        moving_average = pd.DataFrame(columns=columns)
+
+        try:
             if len(self.df) > 1:
                 for col in columns:
                     moving_average.loc[0, col] = self.df[col].values.sum()
@@ -52,7 +81,7 @@ class MovingAverage(object):
                 moving_average = self.df
         except Exception as e:
             debug('Error! Unable to compute moving average:', e)
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
             moving_average = None
         finally:
             self.counter += 1
@@ -61,102 +90,130 @@ class MovingAverage(object):
         return self._to_list(ma_dict)
 
 
-def test_ma_size_1():
-    data = {
-        'scalar': 1,
-        '1d': np.array([1, 2, 3, 4]),
-        '2d': np.array([[1, 1],[2, 2]])
-    }
+class TestMovingAverage(unittest.TestCase):
+    # TODO(Manav): Include Assertions in each test case
 
-    ma = MovingAverage(columns=data.keys(), size=1)
-    print(ma.moving_average(data))
+    def test_ma_size_1(self):
+        data = {
+            'scalar': 1,
+            '1d': np.array([1, 2, 3, 4]),
+            '2d': np.array([[1, 1],[2, 2]])
+        }
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        ma = MovingAverage(columns=data.keys(), size=1)
+        print(ma.moving_average(data))
 
-    print(data)
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        print(data)
+        print(ma.moving_average(data))
 
-    print(data)
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        print(data)
+        print(ma.moving_average(data))
 
-    print(data)
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
+        print(data)
+        print(ma.moving_average(data))
 
-def test_ma_size_5():
-    data = {
-        'scalar': 1,
-        '1d': np.array([1, 2, 3, 4]),
-        '2d': np.array([[1, 1],[2, 2]])
-    }
+    def test_rs_size_1(self):
+        data = {
+            'scalar': 1,
+            '1d': np.array([1, 2, 3, 4]),
+            '2d': np.array([[1, 1],[2, 2]])
+        }
 
-    ma = MovingAverage(columns=data.keys(), size=5)
-    print(ma.moving_average(data))
+        ma = MovingAverage(columns=data.keys(), size=1)
+        print(ma.rolling_sum(data))
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    print("New Row: ", data)
-    print(ma.moving_average(data))
+        print(data)
+        print(ma.rolling_sum(data))
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    print("New Row: ", data)
-    print(ma.moving_average(data))
+        print(data)
+        print(ma.rolling_sum(data))
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*2
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    print("New Row: ", data)
-    print(ma.moving_average(data))
+        print(data)
+        print(ma.rolling_sum(data))
 
+    def test_ma_size_5(self):
+        data = {
+            'scalar': 1,
+            '1d': np.array([1, 2, 3, 4]),
+            '2d': np.array([[1, 1],[2, 2]])
+        }
 
-def test_ma_list():
-    data = {
-        'scalar': 1,
-        '1d': [1, 2, 3, 4],
-        '2d': [[1, 1],[2, 2]]
-    }
+        ma = MovingAverage(columns=data.keys(), size=5)
+        print(ma.moving_average(data))
 
-    ma = MovingAverage(columns=data.keys(), size=1)
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*1
+        print("New Row: ", data)
+        print(ma.moving_average(data))
 
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*1
+        print("New Row: ", data)
+        print(ma.moving_average(data))
 
-    print(ma.moving_average(data))
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*2
 
-    # Genereate New Values
-    for key, values in data.items():
-        data[key] = values*1
+        print("New Row: ", data)
+        print(ma.moving_average(data))
 
-    print(ma.moving_average(data))
+    def test_ma_list(self):
+        data = {
+            'scalar': 1,
+            '1d': [1, 2, 3, 4],
+            '2d': [[1, 1],[2, 2]]
+        }
 
+        ma = MovingAverage(columns=data.keys(), size=1)
+        print(ma.moving_average(data))
 
-def main():
-    test_ma_size_5()
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*1
+
+        print(ma.moving_average(data))
+
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*1
+
+        print(ma.moving_average(data))
+
+        # Genereate New Values
+        for key, values in data.items():
+            data[key] = values*1
+
+        print(ma.moving_average(data))
 
 
 if __name__ == '__main__':
-    main()
+    unittest.main()
