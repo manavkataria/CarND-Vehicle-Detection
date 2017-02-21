@@ -49,11 +49,11 @@ XY_WINDOW = (96, 96)
 XY_OVERLAP = (0.70, 0.70)
 
 # Averaging
-MEMORY_SIZE = 5                     # 20
+MEMORY_SIZE = 10                     # 20
 
 # Heatmap and Threshold
-ROLLING_SUM_HEAT_THRESHOLD = 5      # 15
-CURRENT_FRAME_HEAT_THRESHOLD = 2
+ROLLING_SUM_HEAT_THRESHOLD = 9      # 15
+CURRENT_FRAME_HEAT_THRESHOLD = 1
 HEATMAP_METRICS = True
 
 # Pickled Dataset and Model
