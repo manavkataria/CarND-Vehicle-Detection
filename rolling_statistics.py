@@ -4,6 +4,7 @@ import numpy as np
 import copy
 import unittest
 
+from settings import DEBUG
 from utils import debug
 
 
@@ -52,7 +53,7 @@ class RollingStatistics(object):
                 moving_average = self.df
         except Exception as e:
             debug('Error! Unable to compute moving average:', e)
-            # import ipdb; ipdb.set_trace()
+            if DEBUG: import ipdb; ipdb.set_trace()
             moving_average = None
         finally:
             self.counter += 1
@@ -82,7 +83,7 @@ class RollingStatistics(object):
                 moving_average = self.df
         except Exception as e:
             debug('Error! Unable to compute moving average:', e)
-            # import ipdb; ipdb.set_trace()
+            if DEBUG: import ipdb; ipdb.set_trace()
             moving_average = None
         finally:
             self.counter += 1

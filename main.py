@@ -43,7 +43,8 @@ from settings import (NUM_SAMPLES,
                       IMAGE_DTYPE,
                       ACCURACY,
                       MEMORY_SIZE,
-                      TRAIN)
+                      TRAIN,
+                      DEBUG)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -86,7 +87,7 @@ class VehicleDetection(object):
             [self.X_scaler, self.scaled_X, self.y] = joblib_load(dataset_file)
         else:
             [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
-            # svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
+            # TODO: svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
 
         self.count = 0  # frame counter
         self.init()     # Feature Extraction and Sliding Window Search Params
@@ -194,7 +195,7 @@ class VehicleDetection(object):
         except Exception as e:
             mpimg.imsave('hard/%d.jpg' % self.count, image)
             debug('Error(%s): Issue at Frame %d' % (str(e), self.count))
-            import ipdb; ipdb.set_trace()
+            if DEBUG: import ipdb; ipdb.set_trace()
             heat_thresholded_image = self.save
 
         finally:
@@ -214,9 +215,7 @@ class VehicleDetection(object):
 
 
 def test_svc_color_hist(cars, notcars):
-    # TODO play with these values to see how your classifier
-    # performs under different binning scenarios
-	# TODO(Manav): Pending test after recent updates
+    # TODO(Manav): Pending retest after recent update
     spatial = 32
     histbin = 32
 
@@ -376,7 +375,7 @@ def test_slide_search_window(filenames, cars, notcars, video=False):
         # Debug & Test Images Mode
         for filename in filenames:
             image = mpimg.imread(filename)
-            window_img = detector.sliding_window_search(image)
+            detector.sliding_window_search(image)
 
 
 def main():

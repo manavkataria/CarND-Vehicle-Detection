@@ -2,3 +2,4 @@ scikit-image
 pandas
 joblib
 moviepy
+ipdb
