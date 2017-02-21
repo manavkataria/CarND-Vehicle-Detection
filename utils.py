@@ -122,14 +122,17 @@ def hist(img):
 
 
 def put_text(image, msg, x=50, y=695, size=1, color=(0.8, 0.8, 0.8), thickness=2):
+    """
+    Default (x,y) Values are for a Status Bar at the bottom of the image
+    """
     cv2.putText(image, msg, (x, y), cv2.FONT_HERSHEY_SIMPLEX, size,
                 color, thickness, cv2.LINE_AA)
 
 
-def weighted_img(base_img, overlaid_img, α=0.5, β=0.5, λ=0.):
+def weighted_img(base_img, overlaid_img, α=0.3, β=0.7, λ=0.):
     """
-    `base_img`      Heavy Presence (100%)
-    `overlaid_img`  Minor Presence (50%)
+    `base_img`      Minor Presence (30%)
+    `overlaid_img`  Heavy Presence (70%)
 
     The result image is computed as follows:
         result = base_img * α + overlaid_img * β + λ

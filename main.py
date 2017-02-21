@@ -2,6 +2,7 @@
 import glob
 import matplotlib
 import time
+import cv2
 import numpy as np
 
 from sklearn.svm import LinearSVC
@@ -134,6 +135,32 @@ class VehicleDetection(object):
 
         return self.memory.rolling_sum(data_dict)
 
+    def add_to_debugbar(self, base, inset, msg):
+        # ysize = 400         # Size of Debug Bar in px
+        text_ysize = 42     # Height of Text with Padding
+        right_padding = 30  # Distance from Right Edge
+        hz_centering_msg = 85
+
+        # Resize
+        inset = cv2.resize(inset, None, fx=0.4, fy=0.4)
+
+        # Position
+        (x, y) = (base.shape[1] - inset.shape[1] - right_padding*2), (text_ysize + right_padding)
+
+        # Embed
+        if inset.ndim == 2:
+            # Adaptive Rescale and Convert to Color
+            # import ipdb; ipdb.set_trace()
+            inset = cv2.cvtColor((inset/inset.max()).astype('float32'), cv2.COLOR_GRAY2RGB)
+            # inset = cv2.cvtColor(((inset)*254./(inset.max())).astype('uint8'), cv2.COLOR_GRAY2RGB)
+        base[y:y+inset.shape[0], x:x+inset.shape[1], :] = inset
+
+        # Title Text
+        (xpos, ypos) = (x + hz_centering_msg), (text_ysize + 5)
+        put_text(base, msg, xpos, ypos)
+
+        return base
+
     def heat_and_threshold(self, image, box_list, threshold=1):
         heat = np.zeros_like(image[:,:,0]).astype(np.float)
 
@@ -151,6 +178,9 @@ class VehicleDetection(object):
         # TODO: if VideoMode; else (255)
         raw_heatmap = np.clip(raw_heat, 0, 255)
         avg_heatmap = np.clip(avg_heat, 0, 255)
+
+        msg = 'Rolling Sum Heatmap'
+        image = self.add_to_debugbar(image, avg_heatmap, msg)
 
         # Find final boxes from heatmap using label function
         raw_labels = label(raw_heatmap)
@@ -196,7 +226,8 @@ class VehicleDetection(object):
             mpimg.imsave('hard/%d.jpg' % self.count, image)
             debug('Error(%s): Issue at Frame %d' % (str(e), self.count))
             if DEBUG: import ipdb; ipdb.set_trace()
-            heat_thresholded_image = self.save
+            if self.save:
+                heat_thresholded_image = self.save
 
         finally:
             self.count += 1
