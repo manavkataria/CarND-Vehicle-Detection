@@ -6,7 +6,8 @@ import unittest
 
 from utils import debug
 
-class MovingAverage(object):
+
+class RollingStatistics(object):
 
     def __init__(self, columns, size=5):
         self.df = pd.DataFrame(columns=columns)
@@ -90,7 +91,7 @@ class MovingAverage(object):
         return self._to_list(ma_dict)
 
 
-class TestMovingAverage(unittest.TestCase):
+class TestRollingStatistics(unittest.TestCase):
     # TODO(Manav): Include Assertions in each test case
 
     def test_ma_size_1(self):
@@ -100,7 +101,7 @@ class TestMovingAverage(unittest.TestCase):
             '2d': np.array([[1, 1],[2, 2]])
         }
 
-        ma = MovingAverage(columns=data.keys(), size=1)
+        ma = RollingStatistics(columns=data.keys(), size=1)
         print(ma.moving_average(data))
 
         # Genereate New Values
@@ -131,7 +132,7 @@ class TestMovingAverage(unittest.TestCase):
             '2d': np.array([[1, 1],[2, 2]])
         }
 
-        ma = MovingAverage(columns=data.keys(), size=1)
+        ma = RollingStatistics(columns=data.keys(), size=1)
         print(ma.rolling_sum(data))
 
         # Genereate New Values
@@ -162,7 +163,7 @@ class TestMovingAverage(unittest.TestCase):
             '2d': np.array([[1, 1],[2, 2]])
         }
 
-        ma = MovingAverage(columns=data.keys(), size=5)
+        ma = RollingStatistics(columns=data.keys(), size=5)
         print(ma.moving_average(data))
 
         # Genereate New Values
@@ -193,7 +194,7 @@ class TestMovingAverage(unittest.TestCase):
             '2d': [[1, 1],[2, 2]]
         }
 
-        ma = MovingAverage(columns=data.keys(), size=1)
+        ma = RollingStatistics(columns=data.keys(), size=1)
         print(ma.moving_average(data))
 
         # Genereate New Values

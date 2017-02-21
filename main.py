@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from scipy.ndimage.measurements import label
 
-from moving_average import MovingAverage
+from rolling_statistics import RollingStatistics
 
 from settings import (NUM_SAMPLES,
                       TEST_IMAGES_DIR,
@@ -93,7 +93,7 @@ class VehicleDetection(object):
 
         # Compute Moving Average
         self.columns = ['heat']
-        self.memory = MovingAverage(self.columns, size=MEMORY_SIZE)
+        self.memory = RollingStatistics(self.columns, size=MEMORY_SIZE)
 
         # Top Overlay
         self.overlay = None
@@ -125,13 +125,13 @@ class VehicleDetection(object):
             self.overlay[:Y_START_STOP[0], :, :] = 0
             self.overlay[Y_START_STOP[1]:, :, :] = 0
 
-    def moving_average(self, data):
+    def rolling_sum(self, data):
         data_dict = {}
         for i, value in enumerate(data):
             key = self.columns[i]
             data_dict[key] = value
 
-        return self.memory.moving_average(data_dict)
+        return self.memory.rolling_sum(data_dict)
 
     def heat_and_threshold(self, image, box_list, threshold=1):
         heat = np.zeros_like(image[:,:,0]).astype(np.float)
@@ -140,7 +140,7 @@ class VehicleDetection(object):
         raw_heat = add_heat(heat, box_list)
 
         # Smoothen out heated windows based on time-averaging
-        avg_heat = self.moving_average([heat])['heat']
+        avg_heat = self.rolling_sum([heat])['heat']
 
         # Apply threshold to help remove false positives
         raw_heat = apply_threshold(raw_heat, threshold)
