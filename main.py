@@ -36,7 +36,6 @@ from settings import (NUM_SAMPLES,
                       HOG_FEAT,
                       XY_WINDOW,
                       XY_OVERLAP,
-                      HEAT_THRESHOLD,
                       VIDEO_MODE,
                       IMAGE_HEIGHT,
                       IMAGE_WIDTH,
@@ -46,7 +45,9 @@ from settings import (NUM_SAMPLES,
                       MEMORY_SIZE,
                       TRAIN,
                       DEBUG,
-                      HEATMAP_METRICS)
+                      HEATMAP_METRICS,
+                      ROLLING_SUM_HEAT_THRESHOLD,
+                      CURRENT_FRAME_HEAT_THRESHOLD)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -165,7 +166,7 @@ class VehicleDetection(object):
 
         return base
 
-    def heat_and_threshold(self, image, box_list, threshold=1):
+    def heat_and_threshold(self, image, box_list, rolling_threshold=1, current_threshold=1):
         heat = np.zeros_like(image[:,:,0]).astype(np.float)
 
         # Add heat to each box in box list
@@ -175,8 +176,8 @@ class VehicleDetection(object):
         avg_heat = self.rolling_sum([heat])['heat']
 
         # Apply threshold to help remove false positives
-        raw_heat = apply_threshold(raw_heat, threshold)
-        avg_heat = apply_threshold(avg_heat, threshold)
+        raw_heat = apply_threshold(raw_heat, CURRENT_FRAME_HEAT_THRESHOLD)  # SETTINGS.CURRENT_FRAME_HEAT_THRESHOLD
+        avg_heat = apply_threshold(avg_heat, ROLLING_SUM_HEAT_THRESHOLD)    # SETTINGS.ROLLING_SUM_HEAT_THRESHOLD
 
         # Visualize the heatmap when displaying
         # TODO: if VideoMode; else (255)
@@ -217,13 +218,13 @@ class VehicleDetection(object):
             self.windows = windows
             self.hot_windows = hot_windows
             draw_image = np.copy(image)
-            msg = 'Frame: %04d | Memory: %d | Threshold: %d | Accuracy: %0.1f%%' % (self.count, MEMORY_SIZE, HEAT_THRESHOLD, ACCURACY/100)
+            msg = '%04d | Memory: %dFr | HeatTh: RollSum %d * CurFr %d | Accuracy: %0.1f%%' % (self.count, MEMORY_SIZE, ROLLING_SUM_HEAT_THRESHOLD, CURRENT_FRAME_HEAT_THRESHOLD, ACCURACY/100)
 
             self.update_overlay(draw_image)
             draw_image = weighted_img(draw_image, self.overlay)
             put_text(draw_image, msg)
 
-            heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, threshold=HEAT_THRESHOLD)
+            heat_thresholded_image, thresholded_heatmap, labels = self.heat_and_threshold(draw_image, self.hot_windows, rolling_threshold=ROLLING_SUM_HEAT_THRESHOLD, current_threshold=CURRENT_FRAME_HEAT_THRESHOLD)
             self.save = heat_thresholded_image
 
         except Exception as e:
@@ -374,12 +375,6 @@ def test_sliding_window(image):
 
     window_img = draw_boxes(image, windows, color=(0, 0, 255), thick=6)
     plt.imshow(window_img)
-
-
-def test_draw_labelled_image(vd, image, box_list):
-    draw_img, heatmap, labels = vd.heat_and_threshold(image, box_list, threshold=HEAT_THRESHOLD)
-    title1 = 'Car Positions (%d)' % (labels[1])
-    imcompare(draw_img, heatmap, title1, 'Heat Map', cmap2='hot')
 
 
 def train_or_load_model(cars, notcars):
