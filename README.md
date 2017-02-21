@@ -1,13 +1,27 @@
-Dear Reviewer, Kindly Note: This README is a work in progress. Sunnyvale, California is facing a power outage and I'm using my mobile hotspot to update this. The video and code are up to date.
+Dear Reviewer, Kindly Note: This README is a work in progress. Sunnyvale, California is facing a power outage and I'm using my mobile hotspot to update this. I intend to finish this within the next day. The video and code are up to date.
 -Manav
 12:48am PST, 21st Feb 2017
 
-# Vehicle Detection
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
-
 Table of Contents
 =================
----
+   1. [Files](#files)
+      * [Usage](#usage)
+   1. [Pipeline](#pipeline)
+   1. [Pipeline Features](#pipeline-features)
+   1. [Challenges](#challenges)
+      * [Tuning the Hyperparameters -&gt; Experimentation   Trial &amp; Error](#tuning-the-hyperparameters---experimentation--trial--error)
+      * [Debug Difficulties -&gt; Enhanced Visualizations](#debug-difficulties---enhanced-visualizations)
+   1. [Shortcomings](#shortcomings)
+      * [False Positives](#false-positives)
+      * [No Detection](#no-detection)
+   1. [Future Enhancements](#future-enhancements)
+   1. [Acknowledgements &amp; References](#acknowledgements--references)
+
+Vehicle Detection
+----
+
+[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+
 This video contains results and illustration of challenges encountered during this project:
 
 [![_youtube_thumb_](https://cloud.githubusercontent.com/assets/2206789/23159936/8714f320-f7d9-11e6-9b4f-9a1e55578246.jpg)](https://youtu.be/TJ0arL7OP3o)
@@ -42,7 +56,7 @@ $ python main.py
 $ open output_images/test_video_output.mp4
 ```
 
-## Pipeline
+# Pipeline
 1. Basic Data Exploration
    * Visually scanning the kind of images
    * Plotting Color Space (RGB. HSV, YCrCb) Histograms of Images
@@ -69,9 +83,17 @@ $ open output_images/test_video_output.mp4
 
 1. [Save as Video.mp4](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L395-L402)
 
-## Pipeline Images
+# Pipeline Features
 
-### TODO
+**Figure:  Rolling Sum is Robust to Noise**
+![rolling sum s robustness to noise](https://cloud.githubusercontent.com/assets/2206789/23163153/286d3eba-f7e6-11e6-93a9-992a2d5e217d.jpg)
+
+**Figure: Rolling Sum Picks up where current frame heatmap may not**
+![rolling sum picks up where current frame heatmap does not](https://cloud.githubusercontent.com/assets/2206789/23163252/7be3ba10-f7e6-11e6-8c9a-d4c9a82f1789.jpg)
+
+**Figure:  Rolling Sum is averse to cars on other side of the Highway**
+![rolling sum robust to cars on other lanes](https://cloud.githubusercontent.com/assets/2206789/23163152/28688352-f7e6-11e6-83f7-b34b1a3d4b4f.jpg)
+
 
 # Challenges
 ## Tuning the Hyperparameters -> Experimentation + Trial & Error
@@ -87,18 +109,16 @@ It wasn't easy to visualize why the system didn't work for a given frame of vide
 1. Accuracy of the classifier used is also presented as `Accuracy`
 1. Bounding box ids and sizes are also displayed as `id | width x height` around each box; This will be useful in considering a weighted average (see **Enhancements** below)
 
-# Shortcomings & Future Enhancements
-
-### False Positives
+# Shortcomings
+## False Positives
 **Figure: Example of a frame where the current implementation falls apart**
 ![false positives](https://cloud.githubusercontent.com/assets/2206789/23163233/6a001e2e-f7e6-11e6-82ad-059c20da25b9.jpg)
 
-### No Detection
+## No Detection
 **Figure: Example of a frame where the current implementation does not detect the car**
 ![rolling sum does not detect](https://cloud.githubusercontent.com/assets/2206789/23163372/0b418962-f7e7-11e6-87a7-16874cc01844.jpg)
 
-
-## Enhancements for future
+# Future Enhancements
 1. Optimize the hog feature extraction by caching and reusing hog for different windows and scales
 1. Try different Neural Network based vehicle detection approaches like YOLO instead of SVM LinearSVC
 1. Ideas to Reduce False Positives:
@@ -117,14 +137,3 @@ It wasn't easy to visualize why the system didn't work for a given frame of vide
 * [CarND-Vehicle-Detection](https://github.com/udacity/CarND-Vehicle-Detection) - Udacity Repository test images and test videos
 * [Vehicle Training Set](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip) - to train the classifier
 * [Non Vehicle Training Set](https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip) - to train the classifier  
-
-========
-
-The goals / steps of this project are the following:
-
-* Perform a Histogram of Oriented Gradients (HOG) feature extraction on a labeled training set of images and train a classifier Linear SVM classifier
-* Optionally, you can also apply a color transform and append binned color features, as well as histograms of color, to your HOG feature vector.
-* Note: for those first two steps don't forget to normalize your features and randomize a selection for training and testing.
-* Implement a sliding-window technique and use your trained classifier to search for vehicles in images.
-* Run your pipeline on a video stream (start with the test_video.mp4 and later implement on full project_video.mp4) and create a heat map of recurring detections frame by frame to reject outliers and follow detected vehicles.
-* Estimate a bounding box for vehicles detected.
