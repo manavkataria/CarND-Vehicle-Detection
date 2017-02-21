@@ -1,3 +1,7 @@
+Dear Reviewer, Kindly Note: This README is a work in progress. Sunnyvale, California is facing a power outage and I'm using my mobile hotspot to update this. The video and code are up to date.
+-Manav
+12:48am PST, 21st Feb 2017
+
 # Vehicle Detection
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
