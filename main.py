@@ -369,7 +369,7 @@ def train_svc_with_color_hog_hist(cars, notcars):
 
 
 def test_sliding_window(image):
-    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=[None, None],
+    windows = slide_window(image, x_start_stop=[None, None], y_start_stop=Y_START_STOP,
                            xy_window=(128, 128), xy_overlap=(0.5, 0.5))
 
     window_img = draw_boxes(image, windows, color=(0, 0, 255), thick=6)
@@ -410,8 +410,9 @@ def test_slide_search_window(filenames, cars, notcars, video=False):
 def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
-    # train_svc_with_color_hog_hist(cars, notcars)
     filenames = glob.glob(TEST_IMAGES_DIR + '*')[:NUM_SAMPLES]
+    # train_svc_with_color_hog_hist(cars, notcars)
+    # test_sliding_window(mpimg.imread(filenames[0]))
     test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 

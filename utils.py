@@ -6,8 +6,9 @@ import pickle
 import joblib
 
 from skimage.feature import hog
+from matplotlib.gridspec import GridSpec
 
-from settings import DEBUG, DISPLAY
+from settings import DEBUG, DISPLAY, DEBUG_CHANNEL_HIST
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -34,7 +35,7 @@ def display(image, msg='Image', cmap=None):
     plt.show(block=True)
 
 
-def imcompare(image1, image2, msg1='Image1', msg2='Image2', cmap1=None, cmap2=None):
+def imcompare(image1, image2, msg1='Image1', msg2='Image2', cmap1=None, cmap2=None, block=True):
     if DISPLAY is False: return
 
     if cmap1 is None and image1.ndim == 2:
@@ -52,7 +53,7 @@ def imcompare(image1, image2, msg1='Image1', msg2='Image2', cmap1=None, cmap2=No
     # title = f.suptitle(msg1)
     f.tight_layout()
     # title.set_y(0.75)
-    plt.show(block=True)
+    plt.show(block=block)
 
 
 def pkl_save(py_object, filename):
@@ -151,23 +152,50 @@ def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
         cv2.rectangle(image, (x1, y1), (x2, y2), color, thick)
     return image
 
+def plot_color_hist(range, hist_ch1, hist_ch2, hist_ch3, title):
+    fig = plt.figure()
+    gs = GridSpec(5,2)
+    ax002 = fig.add_subplot(gs[0:2, 0:2])
+    ax2 = fig.add_subplot(gs[2, :])
+    ax3 = fig.add_subplot(gs[3, :])
+    ax4 = fig.add_subplot(gs[4, :])
 
-def color_hist(img, nbins=32, bins_range=(0, 256)):
+    ax002.imshow(img)
+    ax002.set_title(title)
+
+    ax2.bar(range, hist_ch1)
+    ax2.set_title('Features: Color Histogram H Channel')
+
+    ax3.bar(range, hist_ch2)
+    ax3.set_title('Features: Color Histogram L Channel')
+
+    ax4.bar(range, hist_ch3)
+    ax4.set_title('Features: Color Histogram S Channel')
+
+    fig.tight_layout()
+    fig.show()
+	# import ipdb; ipdb.set_trace()
+
+
+def color_hist(img, title=None, nbins=32, bins_range=(0, 1)):
     """
     Compute the histogram of the RGB channels separately
     Concatenate the histograms into a single feature vector
     Return the feature vector
     """
     # Compute the histogram of the RGB channels separately
-    rhist = np.histogram(img[:,:,0], bins=32, range=(0, 256))
-    ghist = np.histogram(img[:,:,1], bins=32, range=(0, 256))
-    bhist = np.histogram(img[:,:,2], bins=32, range=(0, 256))
+    rhist = np.histogram(img[:,:,0], bins=32, range=(0, 1))
+    ghist = np.histogram(img[:,:,1], bins=32, range=(0, 1))
+    bhist = np.histogram(img[:,:,2], bins=32, range=(0, 1))
     # Generating bin centers
     bin_edges = rhist[1]
     bin_centers = (bin_edges[1:] + bin_edges[0:len(bin_edges)-1])/2
     # Concatenate the histograms into a single feature vector
     hist_features = np.concatenate((rhist[0], ghist[0], bhist[0]))
     # Return the individual histograms, bin_centers and feature vector
+
+    if DEBUG_CHANNEL_HIST:
+        plot_color_hist(range(32), rhist[0], ghist[0], bhist[0], title)
     # return rhist, ghist, bhist, bin_centers, hist_features
     return hist_features
 
@@ -224,6 +252,30 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
                        cells_per_block=(cell_per_block, cell_per_block), transform_sqrt=False,
                        visualise=False, feature_vector=feature_vec)
         return features
+
+def plot_features(image1, image2, features):
+    from matplotlib.gridspec import GridSpec
+    fig = plt.figure()
+    gs = GridSpec(4,4)
+    ax002 = fig.add_subplot(gs[0:2, 0:2])
+    ax024 = fig.add_subplot(gs[0:2, 2:4])
+    ax1 = fig.add_subplot(gs[2, :])
+    ax2 = fig.add_subplot(gs[3, :])
+
+    ax002.imshow(image1)
+    ax002.set_title('Car')
+
+    ax024.imshow(image2)
+    ax024.set_title('Non Car')
+
+    ax1.plot(features[0][1])
+    ax1.set_title('Features: Color Histogram of Car')
+
+    ax2.plot(features[1][1])
+    ax2.set_title('Features: Color Histogram of NonCar')
+
+    fig.show()
+    # import ipdb; ipdb.set_trace()
 
 
 def extract_features_hog(filenames, color_space='RGB', spatial_size=(32, 32), hist_bins=32,
@@ -300,6 +352,40 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
     return window_list
 
 
+def test_plot_hog(image, hog, cmap=None):
+    fig = plt.figure()
+    gs = GridSpec(3, 2)
+
+    ax00 = fig.add_subplot(gs[0, 0])
+    ax01 = fig.add_subplot(gs[0, 1])
+
+    ax10 = fig.add_subplot(gs[1, 0])
+    ax11 = fig.add_subplot(gs[1, 1])
+
+    ax20 = fig.add_subplot(gs[2, 0])
+    ax21 = fig.add_subplot(gs[2, 1])
+
+    ax00.imshow(image[:,:,0], cmap=cmap)
+    ax00.set_title('H-Channel')
+    ax01.imshow(hog[0][1], cmap=cmap)
+    ax01.set_title('HOG Features: H-Channel')
+
+    ax10.imshow(image[:,:,1], cmap=cmap)
+    ax10.set_title('L-Channel')
+    ax11.imshow(hog[1][1], cmap=cmap)
+    ax11.set_title('HOG Features: L-Channel')
+
+    ax20.imshow(image[:,:,2], cmap=cmap)
+    ax20.set_title('S-Channel')
+    ax21.imshow(hog[2][1], cmap=cmap)
+    ax21.set_title('HOG Features: S-Channel')
+
+    fig.tight_layout()
+    fig.show()
+    # import ipdb; ipdb.set_trace()
+
+
+
 def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
                         hist_bins=32, orient=9,
                         pix_per_cell=8, cell_per_block=2, hog_channel=0,
@@ -343,6 +429,7 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
             hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
                                             pix_per_cell, cell_per_block, vis=False, feature_vec=True)
 
+    # test_plot_hog(feature_image, hog_features)  # Needs hog_features.append and vis=True 
     return spatial_features, hist_features, hog_features
 
 
@@ -424,3 +511,20 @@ def draw_labeled_bboxes(image, labels, color=(0,1,0), thickness=6, meta=True):
                      size=0.5, color=color, thickness=2)
     # Return the image
     return img
+
+
+def test_color_hist(img, title=None, color_space='HLS'):
+
+    if color_space != 'RGB':
+        if color_space == 'HSV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        elif color_space == 'LUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+        elif color_space == 'HLS':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        elif color_space == 'YUV':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+        elif color_space == 'YCrCb':
+            feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+
+    color_hist(img, title=title)

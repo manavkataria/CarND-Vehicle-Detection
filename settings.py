@@ -39,6 +39,7 @@ HIST_BINS = 32    # Number of histogram bins
 SPATIAL_FEAT = True  # Spatial features on or off
 HIST_FEAT = True  # Histogram features on or off
 HOG_FEAT = True  # HOG features on or off
+DEBUG_CHANNEL_HIST = False  # Disable Plotting
 
 # SVC Model Training
 TRAIN_TEST_SPLIT = 0.2
