@@ -53,7 +53,7 @@ $ python main.py
 [test_slide_search_window:369] Processing Video:  test_video.mp4
 [MoviePy] >>>> Building video output_images/test_video_output.mp4
 [MoviePy] Writing video output_images/test_video_output.mp4
- 100%|██████████████████████████████████████████████████████████████████| 38/39 [02:01<00:03,  3.05s/it]
+ 100%|██████████████████████████████████████████████████████████████████| 39/39 [02:01<00:03,  3.05s/it]
 [MoviePy] Done.
 [MoviePy] >>>> Video ready: output_images/test_video_output.mp4
 
@@ -74,8 +74,7 @@ $ open output_images/test_video_output.mp4
    * Including HOG, experimentation & careful combination of **hyperparameters** [`settings.py:L31-L41`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/settings.py#L31-L41) the accuracy rose up to 99%
    * [Save Model & Features](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L365-L367) - Using `joblib` not `pickle`. `joblib` handles large numpy arrays a lot more efficiently
 1. [**Vehicle Detection**](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L81) - `Class` that utilizes region limited sliding window search, heatmap, thresholding, labelling and rolling sum to eventually filter the vehicles.
-    * [`__init__`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L83-L104) - Initializes Instance Variables
-    * [`init`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L105-L121) - Feature Extraction and Sliding Window Search
+    * [`__init__`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L83-L104) - Initializes Instance Variables like Feature Extraction and Sliding Window Search
     * [**Memory**](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L100-L101) - [`RollingStatistics`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/rolling_statistics.py#L10-L17) object with a circular queue for saving `MEMORY_SIZE` number of previous frames. Leverages `Pandas` underneath. _Pretty cool stuff!_ 😎
     * [`sliding_window_search`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L199-L229) - Search sliding window
         * Region limited search to [`[400, 656]`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/a580530c641a04f6fbaf986eb3a02db12808c18a/settings.py#L47) for optimization.

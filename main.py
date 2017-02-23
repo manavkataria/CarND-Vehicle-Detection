@@ -5,6 +5,8 @@ import time
 import cv2
 import numpy as np
 
+import lesson_functions
+
 from sklearn.svm import LinearSVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -27,7 +29,8 @@ from settings import (NUM_SAMPLES,
                       HOG_CHANNEL,
                       Y_START_STOP,
                       MODEL_FILE,
-                      DATASET_FILE,
+                      DATASET_X_SCALER_FILE,
+                      DATASET_SCALED_X_Y_FILE,
                       TRAIN_TEST_SPLIT,
                       SPATIAL_SIZE,
                       HIST_BINS,
@@ -80,29 +83,7 @@ from moviepy.editor import VideoFileClip
 
 class VehicleDetection(object):
 
-    def __init__(self, model_file=None, dataset_file=None):
-        if model_file:
-            self.svc = joblib_load(model_file)
-        else:
-            self.svc = None
-
-        if dataset_file:
-            [self.X_scaler, self.scaled_X, self.y] = joblib_load(dataset_file)
-        else:
-            [self.X_scaler, self.scaled_X, self.y] = [None, None, None]
-            # TODO: svc, [X_scaler, scaled_X, y] = train_or_load_model(cars, notcars)
-
-        self.count = 0  # frame counter
-        self.init()     # Feature Extraction and Sliding Window Search Params
-
-        # Compute Moving Average
-        self.columns = ['heat']
-        self.memory = RollingStatistics(self.columns, size=MEMORY_SIZE)
-
-        # Top Overlay
-        self.overlay = None
-
-    def init(self):
+    def __init__(self):
         # Features Extraction
         self.color_space = COLORSPACE
         self.orient = ORIENT
@@ -119,6 +100,48 @@ class VehicleDetection(object):
         self.y_start_stop = Y_START_STOP
         self.xy_window = XY_WINDOW
         self.xy_overlap = XY_OVERLAP
+
+        self.count = 0  # frame counter
+
+        # Compute Moving Average
+        self.columns = ['heat']
+        self.memory = RollingStatistics(self.columns, size=MEMORY_SIZE)
+
+        # Top Overlay
+        self.overlay = None
+
+    def train_or_load_model(self, cars, notcars):
+        if TRAIN:
+            # Train Model
+            svc, [X_scaler, scaled_X, y], accuracy = train_svc_with_color_hog_hist(cars, notcars)
+            self.svc, [self.X_scaler, self.scaled_X, self.y], self.accuracy = svc, [X_scaler, scaled_X, y], accuracy
+
+            # Persist to Disk
+            joblib_save(X_scaler, SAVE_DIR + 'dataset_X_scaler_%d.p' % (accuracy * 100))
+            joblib_save([scaled_X, y], SAVE_DIR + 'dataset_scaled_x_y_%d.p' % (accuracy * 100))
+            joblib_save(svc, SAVE_DIR + 'model_%d.p' % (accuracy * 100))
+
+            return svc, X_scaler, scaled_X, y, accuracy
+        else:
+            # Load Model and Dataset
+            if MODEL_FILE:
+                self.svc = joblib_load(MODEL_FILE)
+            else:
+                self.svc = None
+
+            if DATASET_X_SCALER_FILE:
+                self.X_scaler = joblib_load(DATASET_X_SCALER_FILE)
+            else:
+                self.X_scaler = None
+
+            if DATASET_SCALED_X_Y_FILE:
+                self.scaled_X, self.y = joblib_load(DATASET_SCALED_X_Y_FILE)
+            else:
+                self.scaled_X, self.y = None
+
+            self.accuracy = ACCURACY if ACCURACY else None
+
+            return self.svc, self.X_scaler, self.scaled_X, self.y, self.accuracy
 
     def update_overlay(self, image=None):
         if image is None:
@@ -249,6 +272,86 @@ class VehicleDetection(object):
 
         return heat_thresholded_image
 
+        def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+            """
+            Define a single function that can extract features using hog sub-sampling and make predictions
+            """
+
+            draw_img = np.copy(img)
+            img = img.astype(np.float32)/255
+
+            img_tosearch = img[ystart:ystop,:,:]
+            ctrans_tosearch = lesson_functions.convert_color(img_tosearch, conv='RGB2YCrCb')
+            if scale != 1:
+                imshape = ctrans_tosearch.shape
+                ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
+
+            ch1 = ctrans_tosearch[:,:,0]
+            ch2 = ctrans_tosearch[:,:,1]
+            ch3 = ctrans_tosearch[:,:,2]
+
+            # Define blocks and steps as above
+            nxblocks = (ch1.shape[1] // pix_per_cell)-1
+            nyblocks = (ch1.shape[0] // pix_per_cell)-1
+            nfeat_per_block = orient*cell_per_block**2
+            # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
+            window = 64
+            nblocks_per_window = (window // pix_per_cell)-1
+            cells_per_step = 2  # Instead of overlap, define how many cells to step
+            nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+            nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+
+            # Compute individual channel HOG features for the entire image
+            hog1 = lesson_functions.get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+            hog2 = lesson_functions.get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+            hog3 = lesson_functions.get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+
+            for xb in range(nxsteps):
+                for yb in range(nysteps):
+                    ypos = yb*cells_per_step
+                    xpos = xb*cells_per_step
+                    # Extract HOG for this patch
+                    hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                    hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                    hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                    hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+
+                    xleft = xpos*pix_per_cell
+                    ytop = ypos*pix_per_cell
+
+                    # Extract the image patch
+                    subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window, xleft:xleft+window], (64,64))
+
+                    # Get color features
+                    spatial_features = lesson_functions.bin_spatial(subimg, size=spatial_size)
+                    hist_features = color_hist(subimg, nbins=hist_bins)
+
+                    # Scale features and make a prediction
+                    test_features = X_scaler.transform(np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
+                    # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
+                    test_prediction = svc.predict(test_features)
+
+                    if test_prediction == 1:
+                        xbox_left = np.int(xleft*scale)
+                        ytop_draw = np.int(ytop*scale)
+                        win_draw = np.int(window*scale)
+                        cv2.rectangle(draw_img,(xbox_left, ytop_draw+ystart),(xbox_left+win_draw,ytop_draw+win_draw+ystart),(0,0,255),6)
+
+            return draw_img
+
+
+def test_find_cars(cars, notcars):
+    img = mpimg.imread(TEST_IMAGES_DIR + 'test1.jpg')
+
+    ystart, ystop = Y_START_STOP
+    scale = 1.5
+
+    detector = VehicleDetection()
+    detector.train_or_load_model(cars, notcars)
+    out_img = detector.find_cars(img, ystart, ystop, scale, detector.svc, detector.X_scaler, ORIENT, PIX_PER_CELL, CELL_PER_BLOCK, SPATIAL_SIZE, HIST_BINS)
+
+    plt.imshow(out_img)
+
 
 def test_svc_color_hist(cars, notcars):
     # TODO(Manav): Pending retest after recent update
@@ -341,8 +444,10 @@ def train_svc_with_color_hog_hist(cars, notcars):
     X_train, X_test, y_train, y_test = train_test_split(
         scaled_X, y, test_size=TRAIN_TEST_SPLIT, random_state=rand_state)
 
+    print('Using:', COLORSPACE,'colorspace', SPATIAL_SIZE, 'Spatial Size', SPATIAL_SIZE)
     print('Using:',orient,'orientations',pix_per_cell,
-          'pixels per cell and', cell_per_block,'cells per block')
+          'pixels per cell and', cell_per_block,'cells per block',
+          HOG_CHANNEL, 'Channel(s)')
     print('Feature vector length:', len(X_train[0]))
     # Use a linear SVC
     svc = LinearSVC()
@@ -362,9 +467,6 @@ def train_svc_with_color_hog_hist(cars, notcars):
     t2 = time.time()
     print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
-    joblib_save([X_scaler, scaled_X, y], SAVE_DIR + 'dataset_%d.p' % (accuracy * 100))
-    joblib_save(svc, SAVE_DIR + 'model_%d.p' % (accuracy * 100))
-
     return svc, [X_scaler, scaled_X, y], accuracy
 
 
@@ -376,21 +478,10 @@ def test_sliding_window(image):
     plt.imshow(window_img)
 
 
-def train_or_load_model(cars, notcars):
-    # train or load model
-    if not TRAIN and MODEL_FILE and DATASET_FILE:
-        detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
-        svc = detector.svc
-        [X_scaler, scaled_X, y] = [detector.X_scaler, detector.scaled_X, detector.y]
-    else:
-        svc, [X_scaler, scaled_X, y], _ = train_svc_with_color_hog_hist(cars, notcars)
-
-    return svc, [X_scaler, scaled_X, y]
-
-
 def test_slide_search_window(filenames, cars, notcars, video=False):
 
-    detector = VehicleDetection(model_file=MODEL_FILE, dataset_file=DATASET_FILE)
+    detector = VehicleDetection()
+    detector.train_or_load_model(cars, notcars)
 
     if video:
         # Video Mode
@@ -411,8 +502,8 @@ def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     filenames = glob.glob(TEST_IMAGES_DIR + '*')[:NUM_SAMPLES]
-    # train_svc_with_color_hog_hist(cars, notcars)
-    # test_sliding_window(mpimg.imread(filenames[0]))
+    if TRAIN:
+        train_svc_with_color_hog_hist(cars, notcars)
     test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 

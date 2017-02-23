@@ -8,7 +8,7 @@ import joblib
 from skimage.feature import hog
 from matplotlib.gridspec import GridSpec
 
-from settings import DEBUG, DISPLAY, DEBUG_CHANNEL_HIST
+from settings import DEBUG, DISPLAY, DEBUG_CHANNEL_HIST, TRAINING_IMAGE_SIZE
 
 matplotlib.use('TkAgg')  # MacOSX Compatibility
 matplotlib.interactive(True)
@@ -429,7 +429,7 @@ def single_img_features(img, color_space='RGB', spatial_size=(32, 32),
             hog_features = get_hog_features(feature_image[:,:,hog_channel], orient,
                                             pix_per_cell, cell_per_block, vis=False, feature_vec=True)
 
-    # test_plot_hog(feature_image, hog_features)  # Needs hog_features.append and vis=True 
+    # test_plot_hog(feature_image, hog_features)  # Needs hog_features.append and vis=True
     return spatial_features, hist_features, hog_features
 
 
@@ -448,7 +448,8 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # 2) Iterate over all windows in the list
     for window in windows:
         # 3) Extract the test window from original image
-        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
+        # Resize to (64, 64) which was the size of the Training Images
+        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], TRAINING_IMAGE_SIZE)
         # 4) Extract features for that window using single_img_features()
         features = single_img_features(test_img, color_space=color_space,
                                        spatial_size=spatial_size, hist_bins=hist_bins,
