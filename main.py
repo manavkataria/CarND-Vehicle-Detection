@@ -113,6 +113,7 @@ class VehicleDetection(object):
     def train_or_load_model(self, cars, notcars):
         if TRAIN:
             # Train Model
+            debug('Training LinearSVC Model ...')
             svc, [X_scaler, scaled_X, y], accuracy = train_svc_with_color_hog_hist(cars, notcars)
             self.svc, [self.X_scaler, self.scaled_X, self.y], self.accuracy = svc, [X_scaler, scaled_X, y], accuracy
 
@@ -124,16 +125,19 @@ class VehicleDetection(object):
             return svc, X_scaler, scaled_X, y, accuracy
         else:
             # Load Model and Dataset
+            debug('Loading LinearSVC Model %s ...' % MODEL_FILE)
             if MODEL_FILE:
                 self.svc = joblib_load(MODEL_FILE)
             else:
                 self.svc = None
 
+            debug('Loading Dataset File: %s ...' % DATASET_X_SCALER_FILE)
             if DATASET_X_SCALER_FILE:
                 self.X_scaler = joblib_load(DATASET_X_SCALER_FILE)
             else:
                 self.X_scaler = None
 
+            debug('Loading Dataset File: %s ...' % DATASET_SCALED_X_Y_FILE)
             if DATASET_SCALED_X_Y_FILE:
                 self.scaled_X, self.y = joblib_load(DATASET_SCALED_X_Y_FILE)
             else:
@@ -141,6 +145,7 @@ class VehicleDetection(object):
 
             self.accuracy = ACCURACY if ACCURACY else None
 
+            debug('Done!')
             return self.svc, self.X_scaler, self.scaled_X, self.y, self.accuracy
 
     def update_overlay(self, image=None):
@@ -380,9 +385,9 @@ def test_svc_color_hist(cars, notcars):
     X_train, X_test, y_train, y_test = train_test_split(
         scaled_X, y, test_size=0.2, random_state=rand_state)
 
-    print('Using spatial binning of:',spatial,
+    debug('Using spatial binning of:',spatial,
           'and', histbin,'histogram bins')
-    print('Feature vector length:', len(X_train[0]))
+    debug('Feature vector length:', len(X_train[0]))
 
     # Use a linear SVC
     svc = LinearSVC()
@@ -390,16 +395,16 @@ def test_svc_color_hist(cars, notcars):
     t = time.time()
     svc.fit(X_train, y_train)
     t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to train SVC...')
+    debug(round(t2-t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
+    debug('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
     # Check the prediction time for a single sample
     t = time.time()
     n_predict = 10
-    print('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
-    print('For these',n_predict, 'labels: ', y_test[0:n_predict])
+    debug('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
+    debug('For these',n_predict, 'labels: ', y_test[0:n_predict])
     t2 = time.time()
-    print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
+    debug(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
 
 def train_svc_with_color_hog_hist(cars, notcars):
@@ -428,7 +433,7 @@ def train_svc_with_color_hog_hist(cars, notcars):
                                            hog_channel=hog_channel, spatial_feat=spatial_feat,
                                            hist_feat=hist_feat, hog_feat=hog_feat)
     t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to extract HOG features...')
+    debug(round(t2-t, 2), 'Seconds to extract HOG features...')
     # Create an array stack of feature vectors
     X = np.vstack((car_features, notcar_features)).astype(np.float64)
     # Fit a per-column scaler
@@ -444,28 +449,28 @@ def train_svc_with_color_hog_hist(cars, notcars):
     X_train, X_test, y_train, y_test = train_test_split(
         scaled_X, y, test_size=TRAIN_TEST_SPLIT, random_state=rand_state)
 
-    print('Using:', COLORSPACE,'colorspace', SPATIAL_SIZE, 'Spatial Size', SPATIAL_SIZE)
-    print('Using:',orient,'orientations',pix_per_cell,
+    debug('Using:', COLORSPACE,'colorspace', SPATIAL_SIZE, 'Spatial Size', SPATIAL_SIZE)
+    debug('Using:',orient,'orientations',pix_per_cell,
           'pixels per cell and', cell_per_block,'cells per block',
           HOG_CHANNEL, 'Channel(s)')
-    print('Feature vector length:', len(X_train[0]))
+    debug('Feature vector length:', len(X_train[0]))
     # Use a linear SVC
     svc = LinearSVC()
     # Check the training time for the SVC
     t = time.time()
     svc.fit(X_train, y_train)
     t2 = time.time()
-    print(round(t2-t, 2), 'Seconds to train SVC...')
+    debug(round(t2-t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
     accuracy = round(svc.score(X_test, y_test), 4)*100
-    print('Test Accuracy of SVC = ', accuracy)
+    debug('Test Accuracy of SVC = ', accuracy)
     # Check the prediction time for a single sample
     t = time.time()
     n_predict = 10
-    print('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
-    print('For these',n_predict, 'labels: ', y_test[0:n_predict])
+    debug('My SVC predicts: ', svc.predict(X_test[0:n_predict]))
+    debug('For these',n_predict, 'labels: ', y_test[0:n_predict])
     t2 = time.time()
-    print(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
+    debug(round(t2-t, 5), 'Seconds to predict', n_predict,'labels with SVC')
 
     return svc, [X_scaler, scaled_X, y], accuracy
 
@@ -502,8 +507,6 @@ def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     filenames = glob.glob(TEST_IMAGES_DIR + '*')[:NUM_SAMPLES]
-    if TRAIN:
-        train_svc_with_color_hog_hist(cars, notcars)
     test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 
