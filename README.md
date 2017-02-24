@@ -27,8 +27,7 @@ Vehicle Detection
 
 This video contains results and illustration of challenges encountered during this project:
 
-[![_youtube_thumb_](https://cloud.githubusercontent.com/assets/2206789/23159936/8714f320-f7d9-11e6-9b4f-9a1e55578246.jpg)](https://www.youtube.com/watch?edit=vd&v=w9XQY6f3lfY)
-
+[![_youtube_thumb_](https://cloud.githubusercontent.com/assets/2206789/23297825/e2101216-fa2f-11e6-8395-cdaaa4eee723.jpg)](https://www.youtube.com/watch?v=Bzz1Y0NAGdY&edit=vd)
 
 ---
 # Files
@@ -75,9 +74,13 @@ $ open output_images/test_video_output.mp4
    * [Save Model & Features](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L365-L367) - Using `joblib` not `pickle`. `joblib` handles large numpy arrays a lot more efficiently
 1. [**Vehicle Detection**](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L81) - `Class` that utilizes region limited sliding window search, heatmap, thresholding, labelling and rolling sum to eventually filter the vehicles.
     * [`__init__`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L83-L104) - Initializes Instance Variables like Feature Extraction and Sliding Window Search
-    * [**Memory**](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L100-L101) - [`RollingStatistics`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/rolling_statistics.py#L10-L17) object with a circular queue for saving `MEMORY_SIZE` number of previous frames. Leverages `Pandas` underneath. _Pretty cool stuff!_ 😎
+    * [**Memory**](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L100-L101) - `Rolling Statistics`: `Moving Average` and `Rolling Sum`
+        * [`RollingStatistics`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/rolling_statistics.py#L10-L17) object with a circular queue for saving `MEMORY_SIZE` number of previous frames. Leverages `Pandas` underneath.
+        * The [`rolling_sum`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/befbfd60cc54c57b980f1b6a69e3086ab22203cd/rolling_statistics.py#L64-L93) based heatmap accumulates heatmaps from past [`MEMORY_SIZE`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/befbfd60cc54c57b980f1b6a69e3086ab22203cd/settings.py#L54) frames and thresholds them together. Thus eliminating one off noisy detections. I experimented with 25+ different `MEMORY_SIZE`, `ROLLING_SUM_HEAT_THRESHOLD` combinations to come up with a video that was smooth, avoided false positives and was responsive enough to a visible car in the video.
+        *  Prior to [`rolling_sum`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/befbfd60cc54c57b980f1b6a69e3086ab22203cd/rolling_statistics.py#L64-L93) I experimented with [`moving_average`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/befbfd60cc54c57b980f1b6a69e3086ab22203cd/rolling_statistics.py#L35-L62) but soon realized a literal moving average is a very strict thresholding criterion and hence decided to graduate to `rolling_sum` which is simpler, more intuitive, lenient and offers a finer thresholding control.
     * [`sliding_window_search`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L199-L229) - Search sliding window
-        * Region limited search to [`[400, 656]`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/a580530c641a04f6fbaf986eb3a02db12808c18a/settings.py#L47) for optimization.
+        * The window size (ie., scale) and overlap `XY_WINDOW` and `XY_OVERLAP` were defined as [`(96, 96) and 70%`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/befbfd60cc54c57b980f1b6a69e3086ab22203cd/settings.py#L50-L52) respectively. `96px` window size is a fair middle ground that works well to identify cars both near and far and 70% overlap helps cover enough ground to not avoid missing any true positives. It also helps in improving the heat score of a successful detection. Having a single scale makes the algorithm less robust and this could be improved. See caching discussion further down.
+        * Region limited search to Y = [`[400, 656]`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/a580530c641a04f6fbaf986eb3a02db12808c18a/settings.py#L47) for optimization. I did not want to have any X region limit as it is possible to find cars in the left and the right lane of the autonomous car in a general case.
         * Utilizes [memory, `🐛`debug, & exception`🎇` handling ](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/0263dc41f397ddf25b01f0c338fed675734b8d11/main.py#L218-L239)
     * [`update_overlay`](http://github.com/manavkataria/CarND-Vehicle-Detection/blob/967e8210f33396159d991c248c74d68d4e365a3e/main.py#L123-L131) - Sliding Window Search Area Highlighting with
         * `identifier`, and
@@ -126,22 +129,23 @@ It wasn't easy to visualize why the system didn't work for a given frame of vide
 1. Bounding box ids and sizes are also displayed as `id | width x height` around each box; This will be useful in considering a weighted average (see **Enhancements** below)
 
 # Shortcomings
-## False Positives
-**Figure: Example of a frame where the current implementation falls apart**
-![false positives](https://cloud.githubusercontent.com/assets/2206789/23163233/6a001e2e-f7e6-11e6-82ad-059c20da25b9.jpg)
+## False Positives / Needs Merge
+**Figure: Example of a frame where a shorter bounding box needs to be merged with an adjacent bigger one**
+![new false positive](https://cloud.githubusercontent.com/assets/2206789/23298426/7cd69f7a-fa32-11e6-887a-29786ba7f2f8.jpg)
+## Long Tail Detection
+**Figure: Example of a frame where the current implementation detects a long tail due to long frame memory**
 
-## No Detection
-**Figure: Example of a frame where the current implementation does not detect the car**
-![rolling sum does not detect](https://cloud.githubusercontent.com/assets/2206789/23163372/0b418962-f7e7-11e6-87a7-16874cc01844.jpg)
+There was a tradeoff between long-tail and possibility of not having a car detected. I chose to be conservative and err on the side of having a long-tail.
+![long tail](https://cloud.githubusercontent.com/assets/2206789/23298517/d3201406-fa32-11e6-8356-c7387de8a34e.jpg)
 
 # Future Enhancements
-1. Optimize the hog feature extraction by caching and reusing hog for different windows and scales
+1. Optimize the hog feature extraction by caching and reusing hog for different windows and scales.
 1. Try different Neural Network based vehicle detection approaches like YOLO instead of SVM LinearSVC
 1. Ideas to Reduce False Positives:
     1. Consider Weighted Averaging of frames (on Bounding Box size, for example); Penalize small boxes, sustain large ones
     1. Consider frame weight expiry by incorporating a decay factor, like half-life (λ)
     1. Consider using [Optical Flow](http://docs.opencv.org/3.2.0/d7/d8b/tutorial_py_lucas_kanade.html) techniques
-1. Debug: Add heatmap preview window in upper Debug Bar of Video Output
+1. Debug: Add heatmap preview window in upper Debug Bar of Video Output (done)
 1. Minor: Write asserts for unittests in `rolling_statistics.py`
 1. Use sliders to tune thresholds (Original idea courtesy **[Sagar Bhokre](https://github.com/sagarbhokre)**)
 1. Integrate with [Advanced Lane Finding](https://github.com/manavkataria/carnd-advanced-lane-detection) Implementation
