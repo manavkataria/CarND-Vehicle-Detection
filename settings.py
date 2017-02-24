@@ -3,8 +3,8 @@
 # Debug
 DEBUG = True
 DISPLAY = True
-NUM_SAMPLES = 2  # Trim the sample space for efficient debugging
-VIDEO_MODE = False   # Enabled/Disable Video Mode/Test Image Mode
+NUM_SAMPLES = None  # Trim the sample space for efficient debugging
+VIDEO_MODE = True   # Enabled/Disable Video Mode/Test Image Mode
 
 # Image Params
 IMAGE_WIDTH = 1280
@@ -30,6 +30,8 @@ TRAINING_IMAGE_SIZE = (64, 64)
 
 # Feature Extraction
 COLORSPACE = 'HLS'  # Can be RGB*9717, HSV, LUV, HLS*9916, YUV, YCrCb*9899
+# COLORSPACE = 'YCrCb'  # Can be RGB*9717, HSV, LUV, HLS*9916, YUV, YCrCb*9899
+CVT_COLORSPACE = 'RGB2' + COLORSPACE
 ORIENT = 9
 PIX_PER_CELL = 8
 CELL_PER_BLOCK = 2
@@ -60,6 +62,6 @@ HEATMAP_METRICS = True
 # Pickled Dataset and Model
 TRAIN = False
 ACCURACY = 9890
-MODEL_FILE = (SAVE_DIR + 'model_%d.p' % ACCURACY) if not TRAIN else None
+MODEL_FILE = (SAVE_DIR + 'model_%s_%d.p' % (COLORSPACE, ACCURACY)) if not TRAIN else None
 DATASET_X_SCALER_FILE = (SAVE_DIR + 'dataset_X_scaler_%d.p' % ACCURACY) if not TRAIN else None
 DATASET_SCALED_X_Y_FILE = (SAVE_DIR + 'dataset_scaled_x_y_%d.p' % ACCURACY) if not TRAIN else None

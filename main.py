@@ -50,7 +50,8 @@ from settings import (NUM_SAMPLES,
                       DEBUG,
                       HEATMAP_METRICS,
                       ROLLING_SUM_HEAT_THRESHOLD,
-                      CURRENT_FRAME_HEAT_THRESHOLD)
+                      CURRENT_FRAME_HEAT_THRESHOLD,
+                      CVT_COLORSPACE)
 from utils import (draw_boxes,
                    color_hist,
                    extract_features_hog,
@@ -73,12 +74,6 @@ matplotlib.interactive(True)
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from moviepy.editor import VideoFileClip
-
-# TODO(Manav): Classes:
-# Heatmap
-# sliding window
-# hog
-# classifer/model
 
 
 class VehicleDetection(object):
@@ -120,7 +115,7 @@ class VehicleDetection(object):
             # Persist to Disk
             joblib_save(X_scaler, SAVE_DIR + 'dataset_X_scaler_%d.p' % (accuracy * 100))
             joblib_save([scaled_X, y], SAVE_DIR + 'dataset_scaled_x_y_%d.p' % (accuracy * 100))
-            joblib_save(svc, SAVE_DIR + 'model_%d.p' % (accuracy * 100))
+            joblib_save(svc, SAVE_DIR + 'model_%s_%d.p' % (self.color_space, accuracy * 100))
 
             return svc, X_scaler, scaled_X, y, accuracy
         else:
@@ -213,7 +208,7 @@ class VehicleDetection(object):
         avg_heatmap = np.clip(avg_heat, 0, 255)
 
         image = self.add_to_debugbar(image, avg_heatmap, 'Rolling Sum Heatmap', position='right')
-        image = self.add_to_debugbar(image, raw_heatmap, 'Current Frm Heatmap', position='left')
+        image = self.add_to_debugbar(image, raw_heatmap, 'Current Fr. Heatmap', position='left')
 
         # Find final boxes from heatmap using label function
         raw_labels = label(raw_heatmap)
@@ -277,95 +272,99 @@ class VehicleDetection(object):
 
         return heat_thresholded_image
 
-        def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
-            """
-            Define a single function that can extract features using hog sub-sampling and make predictions
-            """
+    def find_cars(self, img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell, cell_per_block, spatial_size, hist_bins):
+        """
+        Define a single function that can extract features using hog sub-sampling and make predictions
+        scale: scales the window bigger -OR- the image smaller
+        """
 
-            draw_img = np.copy(img)
-            img = img.astype(np.float32)/255
+        draw_img = np.copy(img)
+        img = img.astype(np.float32)/255
 
-            img_tosearch = img[ystart:ystop,:,:]
-            ctrans_tosearch = lesson_functions.convert_color(img_tosearch, conv='RGB2YCrCb')
-            if scale != 1:
-                imshape = ctrans_tosearch.shape
-                ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
+        # With 8x8 Cell; cells_per_step = 2 => 75% overlap
+        cells_per_step = 2  # Instead of overlap, define how many cells to step;
 
-            ch1 = ctrans_tosearch[:,:,0]
-            ch2 = ctrans_tosearch[:,:,1]
-            ch3 = ctrans_tosearch[:,:,2]
+        img_tosearch = img[ystart:ystop,:,:]
+        ctrans_tosearch = lesson_functions.convert_color(img_tosearch, conv=CVT_COLORSPACE)
+        if scale != 1:
+            imshape = ctrans_tosearch.shape
+            ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(imshape[1]/scale), np.int(imshape[0]/scale)))
 
-            # Define blocks and steps as above
-            nxblocks = (ch1.shape[1] // pix_per_cell)-1
-            nyblocks = (ch1.shape[0] // pix_per_cell)-1
-            nfeat_per_block = orient*cell_per_block**2
-            # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
-            window = 64
-            nblocks_per_window = (window // pix_per_cell)-1
-            cells_per_step = 2  # Instead of overlap, define how many cells to step
-            nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
-            nysteps = (nyblocks - nblocks_per_window) // cells_per_step
+        ch1 = ctrans_tosearch[:,:,0]
+        ch2 = ctrans_tosearch[:,:,1]
+        ch3 = ctrans_tosearch[:,:,2]
 
-            # Compute individual channel HOG features for the entire image
-            hog1 = lesson_functions.get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
-            hog2 = lesson_functions.get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
-            hog3 = lesson_functions.get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
+        # Define blocks and steps as above
+        nxblocks = (ch1.shape[1] // pix_per_cell)-1
+        nyblocks = (ch1.shape[0] // pix_per_cell)-1
+        nfeat_per_block = orient * cell_per_block**2
+        # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
+        window_size = 64
+        nblocks_per_window = (window_size // pix_per_cell)-1
+        nxsteps = (nxblocks - nblocks_per_window) // cells_per_step
+        nysteps = (nyblocks - nblocks_per_window) // cells_per_step
 
-            for xb in range(nxsteps):
-                for yb in range(nysteps):
-                    ypos = yb*cells_per_step
-                    xpos = xb*cells_per_step
-                    # Extract HOG for this patch
-                    hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
-                    hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
-                    hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
-                    hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
+        # Compute individual channel HOG features for the entire image
+        hog1 = lesson_functions.get_hog_features(ch1, orient, pix_per_cell, cell_per_block, feature_vec=False)
+        hog2 = lesson_functions.get_hog_features(ch2, orient, pix_per_cell, cell_per_block, feature_vec=False)
+        hog3 = lesson_functions.get_hog_features(ch3, orient, pix_per_cell, cell_per_block, feature_vec=False)
 
-                    xleft = xpos*pix_per_cell
-                    ytop = ypos*pix_per_cell
+        for xb in range(nxsteps):
+            for yb in range(nysteps):
+                ypos = yb*cells_per_step
+                xpos = xb*cells_per_step
+                # Extract HOG for this patch
+                hog_feat1 = hog1[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                hog_feat2 = hog2[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                hog_feat3 = hog3[ypos:ypos+nblocks_per_window, xpos:xpos+nblocks_per_window].ravel()
+                hog_features = np.hstack((hog_feat1, hog_feat2, hog_feat3))
 
-                    # Extract the image patch
-                    subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window, xleft:xleft+window], (64,64))
+                xleft = xpos*pix_per_cell
+                ytop = ypos*pix_per_cell
 
-                    # Get color features
-                    spatial_features = lesson_functions.bin_spatial(subimg, size=spatial_size)
-                    hist_features = color_hist(subimg, nbins=hist_bins)
+                # Extract the image patch
+                subimg = cv2.resize(ctrans_tosearch[ytop:ytop+window_size, xleft:xleft+window_size], (64,64))
 
-                    # Scale features and make a prediction
-                    test_features = X_scaler.transform(np.hstack((spatial_features, hist_features, hog_features)).reshape(1, -1))
-                    # test_features = X_scaler.transform(np.hstack((shape_feat, hist_feat)).reshape(1, -1))
-                    test_prediction = svc.predict(test_features)
+                # Get color features
+                spatial_features = lesson_functions.bin_spatial(subimg, size=spatial_size)
+                hist_features = color_hist(subimg, nbins=hist_bins)
 
-                    if test_prediction == 1:
-                        xbox_left = np.int(xleft*scale)
-                        ytop_draw = np.int(ytop*scale)
-                        win_draw = np.int(window*scale)
-                        cv2.rectangle(draw_img,(xbox_left, ytop_draw+ystart),(xbox_left+win_draw,ytop_draw+win_draw+ystart),(0,0,255),6)
+                # Scale features and make a prediction
+                test_features = X_scaler.transform(np.concatenate((spatial_features, hist_features, hog_features)).reshape(1, -1))
+                test_prediction = svc.predict(test_features)
 
-            return draw_img
+                if test_prediction == 1:
+                    xbox_left = np.int(xleft*scale)
+                    ytop_draw = np.int(ytop*scale)
+                    win_draw = np.int(window_size*scale)
+                    cv2.rectangle(draw_img, (xbox_left, ytop_draw+ystart), (xbox_left+win_draw, ytop_draw+win_draw+ystart), (0,0,255), 6)
+
+        return draw_img
 
 
-def test_find_cars(cars, notcars):
-    img = mpimg.imread(TEST_IMAGES_DIR + 'test1.jpg')
-
-    ystart, ystop = Y_START_STOP
-    scale = 1.5
-
+def test_find_cars(filenames, cars, notcars):
     detector = VehicleDetection()
     detector.train_or_load_model(cars, notcars)
-    out_img = detector.find_cars(img, ystart, ystop, scale, detector.svc, detector.X_scaler, ORIENT, PIX_PER_CELL, CELL_PER_BLOCK, SPATIAL_SIZE, HIST_BINS)
 
-    plt.imshow(out_img)
+    for filename in filenames:
+        img = mpimg.imread(filename)
+
+        ystart, ystop = Y_START_STOP
+        scale = 3
+
+        out_img = detector.find_cars(img, ystart, ystop, scale, detector.svc, detector.X_scaler, ORIENT, PIX_PER_CELL, CELL_PER_BLOCK, SPATIAL_SIZE, HIST_BINS)
+
+        display(out_img, msg=COLORSPACE)
 
 
 def test_svc_color_hist(cars, notcars):
     # TODO(Manav): Pending retest after recent update
-    spatial = 32
-    histbin = 32
+    spatial = SPATIAL_SIZE[0]
+    histbin = HIST_BINS
 
-    car_features = extract_features_hog(cars, color_space='HSV', spatial_size=(spatial, spatial),
+    car_features = extract_features_hog(cars, color_space=COLORSPACE, spatial_size=(spatial, spatial),
                                         hist_bins=histbin, hist_range=(0, 256), hog_feat=False)
-    notcar_features = extract_features_hog(notcars, color_space='HSV', spatial_size=(spatial, spatial),
+    notcar_features = extract_features_hog(notcars, color_space=COLORSPACE, spatial_size=(spatial, spatial),
                                            hist_bins=histbin, hist_range=(0, 256), hog_feat=False)
 
     # TODO: Move Normalization Post Test/Train Split
@@ -507,6 +506,7 @@ def main():
     cars = glob.glob(TRAINING_DIR + VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     notcars = glob.glob(TRAINING_DIR + NON_VEHICLES_DIR + '*/*.png')[:NUM_SAMPLES]
     filenames = glob.glob(TEST_IMAGES_DIR + '*')[:NUM_SAMPLES]
+    # test_find_cars(filenames, cars, notcars)
     test_slide_search_window(filenames, cars, notcars, video=VIDEO_MODE)
 
 
